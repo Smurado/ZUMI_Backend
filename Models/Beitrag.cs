@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace ZUMI_Backend.Models
@@ -12,7 +11,6 @@ namespace ZUMI_Backend.Models
         [MaxLength(255)]
         public string Beschreibung { get; set; }
 
-        // Many-to-Many: EF Core handhabt through 'PersonBeitrag' automatisch
-        public virtual ICollection<Person> Personen { get; set; } = new List<Person>();
+        public virtual ICollection<Person> Personen { get; set; } = new List<Person>();  // Many-to-Many through PersonBeitrag
     }
 }

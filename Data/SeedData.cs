@@ -39,19 +39,14 @@ namespace ZUMI_Backend.Data
 
                 var projekt = new Projekt
                 {
-                    Name = "TestProjekt",
+                    Kurztitel = "TestProjekt",
                     Beschreibung = "Ein Beispiel-Projekt",
                     Plz = "12345",
-                    Land = "Deutschland",
-                    Ort = "Berlin",
-                    Vorbereitungszeit = "1 Monat",
-                    Umsetzungszeit = "3 Monate",
-                    Beginn = DateTime.UtcNow,
-                    Ende = DateTime.UtcNow.AddMonths(3),
+                    Adresse = "TestAdresse",
+                    Vorbereitungszeitraum = "1 Monat",
+                    Umsetzungszeitraum = "3 Monate",
                     Projektstatus = status,
                     Titelbild = "test.jpg",
-                    Bild = "test.jpg",
-                    Erklaerbild = "test.jpg",
                     Kooperationseinrichtungen = new List<Kooperationseinrichtung>{
                         new()
                         {

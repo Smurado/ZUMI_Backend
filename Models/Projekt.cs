@@ -12,51 +12,49 @@ namespace ZUMI_Backend.Models
 
         [Required]
         [MaxLength(50)]
-        public string Name { get; set; }
+        public string Kurztitel { get; set; }
+
+        [Required]
+        public string Kurzbeschreibung { get; set; }
+
+        public string Titelbild { get; set; }  // URL/Path zu ImageField
 
         [Required]
         public string Beschreibung { get; set; }
 
-        public string Titelbild { get; set; }  // Pfad/URL
+        [Required]
+        [MaxLength(255)]
+        public string Vorbereitungszeitraum { get; set; }
 
-        public string Bild { get; set; }
+        [Required]
+        [MaxLength(255)]
+        public string Umsetzungszeitraum { get; set; }
 
-        public string Erklaerbild { get; set; }
+        public string StandortLink { get; set; }  // URLField
+
+        [MaxLength(255)]
+        public string Adresse { get; set; }
 
         [Required]
         [MaxLength(5)]
         public string Plz { get; set; }
 
-        [Required]
         [MaxLength(255)]
-        public string Land { get; set; }
+        public string Spendeninformationen { get; set; }
 
-        [Required]
-        [MaxLength(255)]
-        public string Ort { get; set; }
+        public string WeitereInfos { get; set; }
 
-        [Required]
-        [MaxLength(255)]
-        public string Vorbereitungszeit { get; set; }
-
-        [Required]
-        [MaxLength(255)]
-        public string Umsetzungszeit { get; set; }
-
-        [Required]
-        public DateTime Beginn { get; set; }
-
-        [Required]
-        public DateTime Ende { get; set; }
+        public string LetztesUpdate { get; set; }  // Als string, da TextField; ggf. zu DateTime ändern, wenn timestamp
 
         // Foreign Key
         public Guid ProjektstatusId { get; set; }
         [ForeignKey(nameof(ProjektstatusId))]
         public virtual Projektstatus Projektstatus { get; set; }
 
-        // Many-to-Many (reverse)
-        public virtual ICollection<Person> Personen { get; set; } = new List<Person>();
-        public virtual ICollection<SustainableDevelopmentGoal> Sdgs { get; set; } = new List<SustainableDevelopmentGoal>();
-        public virtual ICollection<Kooperationseinrichtung> Kooperationseinrichtungen { get; set; } = new List<Kooperationseinrichtung>();
+        // Many-to-Many
+        public virtual ICollection<Person> Personen { get; set; } = new List<Person>();  // Through ProjektPerson
+        public virtual ICollection<SustainableDevelopmentGoal> Sdgs { get; set; } = new List<SustainableDevelopmentGoal>();  // Through ProjektSDG
+        public virtual ICollection<Kooperationseinrichtung> Kooperationseinrichtungen{ get; set; } = new List<Kooperationseinrichtung>();  // Through ProjektKooperationseinrichtung
+        public virtual ICollection<Materialien> Materialien { get; set; } = new List<Materialien>();  // Through ProjektMaterialien
     }
 }

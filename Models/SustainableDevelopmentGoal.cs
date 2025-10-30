@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace ZUMI_Backend.Models
@@ -15,7 +14,6 @@ namespace ZUMI_Backend.Models
         [MaxLength(255)]
         public string Name { get; set; }
 
-        // Many-to-Many: EF Core handhabt through 'ProjektSDG' automatisch
-        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();
+        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();  // Many-to-Many through ProjektSDG
     }
 }

@@ -12,7 +12,7 @@ namespace ZUMI_Backend.Models
 
         [Required]
         [EmailAddress]
-        public string Email { get; set; }  // Als Username verwendet
+        public string Email { get; set; }
 
         [Required]
         [MaxLength(5)]
@@ -32,13 +32,13 @@ namespace ZUMI_Backend.Models
 
         public string Staerken { get; set; }
 
-        public string Avatar { get; set; }  // Pfad/URL zum Avatar
+        public string Avatar { get; set; }  // Path to FilePathField
 
         [Required]
-        public string FirstName { get; set; }  // Aus AbstractUser (first_name)
+        public string FirstName { get; set; }
 
         [Required]
-        public string LastName { get; set; }   // Aus AbstractUser (last_name)
+        public string LastName { get; set; }
 
         // Foreign Keys
         public Guid? AltersgruppeId { get; set; }
@@ -50,7 +50,7 @@ namespace ZUMI_Backend.Models
         public virtual Rolle Rolle { get; set; }
 
         // Many-to-Many
-        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();  // Through 'ProjektPerson'
-        public virtual ICollection<Beitrag> Beitraege { get; set; } = new List<Beitrag>();  // Through 'PersonBeitrag'
+        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();  // Through ProjektPerson
+        public virtual ICollection<Beitrag> Beitraege { get; set; } = new List<Beitrag>();  // Through PersonBeitrag
     }
 }
