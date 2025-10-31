@@ -27,7 +27,8 @@ namespace ZUMI_Backend.Data
 
                 var person = new Person
                 {
-                    Email = "test@example.com",
+                    Email = "test@testung.de",
+                    Password = BCrypt.Net.BCrypt.HashPassword("test"),
                     FirstName = "Max",
                     LastName = "Mustermann",
                     Plz = "12345",
@@ -59,7 +60,11 @@ namespace ZUMI_Backend.Data
                     }
                 };
                 projekt.Sdgs.Add(sdg);
-                projekt.Personen.Add(person);
+                projekt.Personen.Add(new ProjektPerson
+                {
+                    Person = person,
+                    Projekt = projekt
+                });
                 context.Projekte.Add(projekt);
 
                 context.SaveChanges();

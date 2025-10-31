@@ -13,9 +13,8 @@ namespace ZUMI_Backend.Models
         [Required]
         [MaxLength(50)]
         public string Kurztitel { get; set; }
-
-        [Required]
-        public string Kurzbeschreibung { get; set; }
+        
+        public string? Kurzbeschreibung { get; set; }
 
         public string Titelbild { get; set; }  // URL/Path zu ImageField
 
@@ -30,7 +29,7 @@ namespace ZUMI_Backend.Models
         [MaxLength(255)]
         public string Umsetzungszeitraum { get; set; }
 
-        public string StandortLink { get; set; }  // URLField
+        public string? StandortLink { get; set; }  // URLField
 
         [MaxLength(255)]
         public string Adresse { get; set; }
@@ -40,11 +39,11 @@ namespace ZUMI_Backend.Models
         public string Plz { get; set; }
 
         [MaxLength(255)]
-        public string Spendeninformationen { get; set; }
+        public string? Spendeninformationen { get; set; }
 
-        public string WeitereInfos { get; set; }
+        public string? WeitereInfos { get; set; }
 
-        public string LetztesUpdate { get; set; }  // Als string, da TextField; ggf. zu DateTime ändern, wenn timestamp
+        public string? LetztesUpdate { get; set; }  // Als string, da TextField; ggf. zu DateTime ändern, wenn timestamp
 
         // Foreign Key
         public Guid ProjektstatusId { get; set; }
@@ -52,9 +51,10 @@ namespace ZUMI_Backend.Models
         public virtual Projektstatus Projektstatus { get; set; }
 
         // Many-to-Many
-        public virtual ICollection<Person> Personen { get; set; } = new List<Person>();  // Through ProjektPerson
+        public virtual ICollection<ProjektPerson> Personen { get; set; } = new List<ProjektPerson>();  // Through ProjektPerson
         public virtual ICollection<SustainableDevelopmentGoal> Sdgs { get; set; } = new List<SustainableDevelopmentGoal>();  // Through ProjektSDG
         public virtual ICollection<Kooperationseinrichtung> Kooperationseinrichtungen{ get; set; } = new List<Kooperationseinrichtung>();  // Through ProjektKooperationseinrichtung
         public virtual ICollection<Materialien> Materialien { get; set; } = new List<Materialien>();  // Through ProjektMaterialien
+        public virtual ICollection<Todo> Todos { get; set; } = new List<Todo>();
     }
 }

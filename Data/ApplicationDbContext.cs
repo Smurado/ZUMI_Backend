@@ -13,6 +13,10 @@ namespace ZUMI_Backend.Data
         public DbSet<Person> Persons { get; set; }
         public DbSet<Beitrag> Beitraege { get; set; }
         public DbSet<Kooperationseinrichtung> Kooperationseinrichtungen { get; set; }
+        public DbSet<Todo> Todos { get; set; }
+        
+        public DbSet<ProjektPerson> ProjektPersons { get; set; }
+        public DbSet<Erklaerbild> Erklaerbilder { get; set; }
         
         // Constructor for Dependency Injection
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
@@ -27,23 +31,35 @@ namespace ZUMI_Backend.Data
                 .WithMany(s => s.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektSDG"));
             
-            // Projekt <-> Person (through ProjektPerson)
             modelBuilder.Entity<Projekt>()
-                .HasMany(p => p.Personen)
-                .WithMany(pe => pe.Projekte)
-                .UsingEntity(j => j.ToTable("ProjektPerson"));
+                .HasMany(p => p.Todos);
             
             // Projekt <-> Kooperationseinrichtung (through ProjektKooperationseinrichtung)
             modelBuilder.Entity<Projekt>()
                 .HasMany(p => p.Kooperationseinrichtungen)
                 .WithMany(k => k.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektKooperationseinrichtung"));
+            
+            // Konfiguriere die Junction-Entity (ersetzt alte UsingEntity)
+            modelBuilder.Entity<ProjektPerson>()
+                .HasKey(pp => new { pp.PersonId, pp.ProjektId });  // Composite Key
+
+            modelBuilder.Entity<ProjektPerson>()
+                .HasOne(pp => pp.Person)
+                .WithMany(p => p.Projekte)
+                .HasForeignKey(pp => pp.PersonId);
+
+            modelBuilder.Entity<ProjektPerson>()
+                .HasOne(pp => pp.Projekt)
+                .WithMany(pr => pr.Personen)
+                .HasForeignKey(pp => pp.ProjektId);
 
             // Beitrag <-> Person (through PersonBeitrag)
             modelBuilder.Entity<Beitrag>()
                 .HasMany(b => b.Personen)
                 .WithMany(pe => pe.Beitraege)
                 .UsingEntity(j => j.ToTable("PersonBeitrag"));
+            
             
         }
     }

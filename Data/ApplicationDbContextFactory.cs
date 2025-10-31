@@ -19,7 +19,8 @@ namespace ZUMI_Backend.Data
             var builder = new DbContextOptionsBuilder<ApplicationDbContext>();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-            builder.UseNpgsql(connectionString);  // PostgreSQL-Provider
+            builder.UseSqlite("Filename=localdev.db");
+            //builder.UseNpgsql(connectionString);  // PostgreSQL-Provider
 
             return new ApplicationDbContext(builder.Options);
         }

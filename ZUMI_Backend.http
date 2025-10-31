@@ -1,6 +1,17 @@
-@ZUMI_Backend_HostAddress = http://localhost:5132
+### POST Login to get JWT Token
+POST http://localhost:5132/api/v1/login
+Content-Type: application/json
 
-GET {{ZUMI_Backend_HostAddress}}/weatherforecast/
-Accept: application/json
+{
+  "Email": "test@testung.de",
+  "Password": "test"
+}
 
-###
+> {%
+    client.global.set("auth_token", response.body.token);
+    client.log("JWT Token gespeichert: " + client.global.get("auth_token"));
+%}
+
+### GET Eigene Projekte (nutzt das gespeicherte Token)
+GET http://localhost:5132/api/v1/projekte/meine
+Authorization: Bearer {{auth_token}}
