@@ -418,3 +418,7 @@ Temporary Items
 
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
+
+# appsettings
+appsettings.json
+appsettings.*.json  # Für alle Umgebungen wie Development, Production
