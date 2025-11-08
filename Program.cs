@@ -20,7 +20,12 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =
 var jwtConfig = builder.Configuration.GetSection("JwtSettings").Get<JwtConfiguration>() ?? new JwtConfiguration();
 builder.Services.AddSingleton(jwtConfig);
 
-
+// DbContext registrieren
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseNpgsql(connectionString);
+});
 
 // JWT-Authentication hinzufügen
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -58,20 +63,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+
+
 var app = builder.Build();
-
-// DbContext registrieren – je nach Environment wählen
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    var environment = builder.Environment.EnvironmentName;
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-    // Prod/Release: PostgreSQL
-    options.UseNpgsql(connectionString);
-    
-    // Dev. SQLite
-    //options.UseSqlite("Filename=localdev.db");
-});
 
 // CORS, Auth, etc.
 app.UseCors();
