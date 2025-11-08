@@ -18,6 +18,8 @@ namespace ZUMI_Backend.Data
         public DbSet<ProjektPerson> ProjektPersons { get; set; }
         public DbSet<Erklaerbild> Erklaerbilder { get; set; }
         
+        public DbSet<Materialien> Materialien { get; set; }
+        
         // Constructor for Dependency Injection
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
 
@@ -39,6 +41,11 @@ namespace ZUMI_Backend.Data
                 .HasMany(p => p.Kooperationseinrichtungen)
                 .WithMany(k => k.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektKooperationseinrichtung"));
+            
+            modelBuilder.Entity<Projekt>()
+                .HasMany(p =>p.Materialien)
+                .WithMany(m => m.Projekte)
+                .UsingEntity(j => j.ToTable("ProjektMaterialien"));
             
             // Konfiguriere die Junction-Entity (ersetzt alte UsingEntity)
             modelBuilder.Entity<ProjektPerson>()
