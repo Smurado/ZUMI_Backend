@@ -7,7 +7,7 @@ services:
       - "8000:8080"  
       - "8443:443"  
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Release
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydatabase;Port=5432;Username=myuser;Password=mypassword;Include Error Detail=true
     depends_on:
       postgres:
@@ -35,7 +35,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+  
 volumes:
   postgres_data:
 

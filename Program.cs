@@ -20,11 +20,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =
 var jwtConfig = builder.Configuration.GetSection("JwtSettings").Get<JwtConfiguration>() ?? new JwtConfiguration();
 builder.Services.AddSingleton(jwtConfig);
 
-// DbContext registrieren (SQLite für Dev)
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    options.UseSqlite("Filename=localdev.db");  // Oder UseNpgsql für PostgreSQL
-});
+
 
 // JWT-Authentication hinzufügen
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -43,7 +39,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddAutoMapper(cfg => {
+    cfg.LicenseKey = "<eyJhbGciOiJSUzI1NiIsImtpZCI6Ikx1Y2t5UGVubnlTb2Z0d2FyZUxpY2Vuc2VLZXkvYmJiMTNhY2I1OTkwNGQ4OWI0Y2IxYzg1ZjA4OGNjZjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2x1Y2t5cGVubnlzb2Z0d2FyZS5jb20iLCJhdWQiOiJMdWNreVBlbm55U29mdHdhcmUiLCJleHAiOiIxNzk0MDk2MDAwIiwiaWF0IjoiMTc2MjYyNzQ4MyIsImFjY291bnRfaWQiOiIwMTlhNjRjOGIwYWY3YjliOGNlMGQyYmQzZjg2ODY5MyIsImN1c3RvbWVyX2lkIjoiY3RtXzAxazlqY2h4amJybWRzOWVwZXljajBlOGtuIiwic3ViX2lkIjoiLSIsImVkaXRpb24iOiIwIiwidHlwZSI6IjIifQ.TRUquj0PoiDe1F8laoWpR8AkYmdDwRObB3dCpyeU-TI1WzHa0vqFu41JQij9knsmlAQKM4XzrM26qJrwou-drrj5nAIewESC67bkl-TJmLR6ND8R0TPncJcwLm2mYDn2LjaEJSrfEzcoPu0LdD5MG1V7fCnGEzi1dNSVfxquNFc3sYTceoiAKP2Tum531CgeV0VmbEeZ68nXqp3cmc606ep28LJlDWw3madA4mlfT7IjVlKF9sgLxmD8D_MDS7qnCRFk53FNo1CIW23u8IIK4lrg3DOrSWdlWrZ6WEaLGBJil_7C8jcprrGBt-D2k-Xo55tGZW4tbiHjwykB3662QQ>";
+}, typeof(MappingProfile));
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -61,6 +59,19 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// DbContext registrieren – je nach Environment wählen
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    var environment = builder.Environment.EnvironmentName;
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+    // Prod/Release: PostgreSQL
+    options.UseNpgsql(connectionString);
+    
+    // Dev. SQLite
+    //options.UseSqlite("Filename=localdev.db");
+});
 
 // CORS, Auth, etc.
 app.UseCors();

@@ -16,11 +16,12 @@ namespace ZUMI_Backend.Data
                 .AddJsonFile("appsettings.Development.json", optional: true)  // Optional für Dev-Overrides
                 .Build();
 
+            var environment = configuration.GetValue<string>("ASPNETCORE_ENVIRONMENT") ?? "Development";
             var builder = new DbContextOptionsBuilder<ApplicationDbContext>();
             var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-            builder.UseSqlite("Filename=localdev.db");
-            //builder.UseNpgsql(connectionString);  // PostgreSQL-Provider
+            builder.UseNpgsql(connectionString);
+  
 
             return new ApplicationDbContext(builder.Options);
         }
