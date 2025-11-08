@@ -63,8 +63,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-
-
 var app = builder.Build();
 
 // CORS, Auth, etc.
@@ -80,11 +78,11 @@ app.UseAuthorization();
 }*/
 
 // Dev-Features
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseHttpsRedirection();
 

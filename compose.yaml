@@ -36,6 +36,18 @@ services:
       timeout: 5s
       retries: 5
   
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Deine Config-Datei
+    ports:
+      - "80:80"  # Nur HTTP – öffentlich auf 80 (kein 443)
+    depends_on:
+      - app
+    networks:
+      - app-network
+    restart: always
+  
 volumes:
   postgres_data:
 
