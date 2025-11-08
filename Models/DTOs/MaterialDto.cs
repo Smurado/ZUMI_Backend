@@ -4,5 +4,6 @@ public class MaterialDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; }
-    // Weitere Felder
+    public string Beschreibung { get; set; }
+    public bool vorhanden { get; set; }
 }

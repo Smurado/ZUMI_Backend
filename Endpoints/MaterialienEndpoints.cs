@@ -10,8 +10,8 @@ public static class MaterialienEndpoints
 {
     public static void MapMaterialienEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        // POST /api/v1/material - Create
-        endpoints.MapPost("/material", async (Materialien newMaterial, ApplicationDbContext db) =>
+        // POST  - Create /api/v1/materialien/create/
+        endpoints.MapPost("/materialien/create/", async (Materialien newMaterial, ApplicationDbContext db) =>
         {
             db.Materialien.Add(newMaterial);
             await db.SaveChangesAsync();

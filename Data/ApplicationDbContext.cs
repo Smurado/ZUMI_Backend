@@ -22,6 +22,9 @@ namespace ZUMI_Backend.Data
         
         // Constructor for Dependency Injection
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+        
+        public DbSet<OutstandingToken> OutstandingTokens { get; set; }
+        public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -66,6 +69,16 @@ namespace ZUMI_Backend.Data
                 .HasMany(b => b.Personen)
                 .WithMany(pe => pe.Beitraege)
                 .UsingEntity(j => j.ToTable("PersonBeitrag"));
+            
+            modelBuilder.Entity<OutstandingToken>()
+                .HasOne(ot => ot.User)
+                .WithMany()
+                .HasForeignKey(ot => ot.UserId);
+
+            modelBuilder.Entity<BlacklistedToken>()
+                .HasOne(bt => bt.Token)
+                .WithMany()
+                .HasForeignKey(bt => bt.TokenId);
             
             
         }

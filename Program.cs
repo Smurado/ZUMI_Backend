@@ -68,11 +68,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Seed Data
-using (var scope = app.Services.CreateScope())
+/*using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     SeedData.Initialize(services);
-}
+}*/
 
 // Dev-Features
 if (app.Environment.IsDevelopment())

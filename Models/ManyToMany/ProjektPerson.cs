@@ -8,9 +8,10 @@ namespace ZUMI_Backend.Models
         public Guid PersonId { get; set; }
         public Guid ProjektId { get; set; }
 
-        // Neu: Attribute für Liked und Mitmacht
+        //
         public bool IsLiked { get; set; } = false;
-        public bool IsParticipating { get; set; } = false;  // "Mitmacht"
+        public bool IsOwner { get; set; } = false;
+        public bool IsParticipating { get; set; } = false; 
 
         // Navigation Properties (optional, für Queries)
         [ForeignKey(nameof(PersonId))]

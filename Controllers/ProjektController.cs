@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ZUMI_Backend.Controllers
 {

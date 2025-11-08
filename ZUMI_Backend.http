@@ -1,5 +1,5 @@
 ### POST Login to get JWT Token
-POST http://localhost:5132/api/v1/login
+POST http://localhost:5132/api/v1/auth/token/
 Content-Type: application/json
 
 {
@@ -8,10 +8,45 @@ Content-Type: application/json
 }
 
 > {%
-    client.global.set("auth_token", response.body.token);
+    client.global.set("auth_token", response.body.access);
     client.log("JWT Token gespeichert: " + client.global.get("auth_token"));
 %}
 
-### GET Eigene Projekte (nutzt das gespeicherte Token)
-GET http://localhost:5132/api/v1/projekte/meine
+###
+POST http://localhost:5132/api/v1/projekte/create/
 Authorization: Bearer {{auth_token}}
+
+{
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "kurztitel": "string",
+  "kurzbeschreibung": "string",
+  "titelbild": "string",
+  "beschreibung": "string",
+  "vorbereitungszeitraum": "string",
+  "umsetzungszeitraum": "string",
+  "standortLink": "string",
+  "adresse": "string",
+  "plz": "strin",
+  "spendeninformationen": "string",
+  "weitereInfos": "string",
+  "letztesUpdate": "string",
+  "projektstatusId": "408A1615-81A8-4F84-A623-F5ED5C853E7B",
+  "kooperationseinrichtungen": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "name": "string",
+      "webseite": "string",
+      "telefonnummer": "string",
+      "email": "user@example.com",
+      "socialMedia": "string"
+    }
+  ],
+  "materialien": [
+    {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "name": "string",
+      "beschreibung": "string",
+      "vorhanden": true
+    }
+  ]
+}

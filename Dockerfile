@@ -18,4 +18,5 @@ RUN dotnet publish "ZUMI_Backend.csproj" -c $BUILD_CONFIGURATION -o /app/publish
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+RUN ls /app  # Neu: Zeigt Inhalt in Logs
 ENTRYPOINT ["dotnet", "ZUMI_Backend.dll"]

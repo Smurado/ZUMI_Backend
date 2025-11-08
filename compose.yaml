@@ -4,19 +4,17 @@ services:
   app:
     build: .
     ports:
-      - "8000:80"  # Oder "8000:80" für Konsistenz mit Django
-    volumes:
-      - .:/app  # Optional: Für Hot-Reload in Dev, aber in .NET oft nicht nötig
+      - "8000:8080"  
+      - "8443:443"  
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydatabase;Port=5432;Username=myuser;Password=mypassword;Include Error Detail=true
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy  # Warte auf healthy DB
     networks:
       - app-network
     restart: always
-    # Optional: Wenn du ein wait-Script hast, passe an; sonst Migrationen manuell ausführen
-    # command: /app/wait_for_db_and_populate.sh
 
   postgres:
     image: postgres:16
@@ -32,6 +30,11 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    healthcheck:  # Neu: Check, ob DB ready
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
