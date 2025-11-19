@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ZUMI_Backend.Models
 {
-    public class Materialien
+    public class Material
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -15,6 +15,6 @@ namespace ZUMI_Backend.Models
 
         public bool Vorhanden { get; set; } = false;
 
-        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();  // Many-to-Many through ProjektMaterialien
+        public virtual ICollection<Project> Projekte { get; set; } = new List<Project>();  // Many-to-Many through ProjektMaterialien
     }
 }

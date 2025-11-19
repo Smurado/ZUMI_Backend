@@ -25,12 +25,23 @@ public static class PersonEndpoints
         .RequireAuthorization()
         .WithName("UpdatePerson")
         .WithOpenApi();
-
-        // GET /api/v1/personen - Alle Personen listen
-        endpoints.MapGet("/personen", async (ApplicationDbContext db, IMapper mapper) =>
-        {
-            var persons = await db.Persons.ToListAsync();
-            return mapper.Map<List<PersonDto>>(persons);
+        
+        // GET /api/v1/whoami - Alle Personen listen
+        endpoints.MapGet("/whoami", async (ApplicationDbContext db, IMapper mapper, HttpContext http) => 
+            {
+            
+            var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
+            
+            if (userId == Guid.Empty) return Results.Unauthorized();
+            
+            var person = await db.Persons
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == userId);
+            
+            if (person == null) return Results.NotFound("Person not found");
+            
+            var personDto = mapper.Map<PersonDto>(person);
+            return Results.Ok(personDto);
         })
         .RequireAuthorization()
         .WithName("PersonList")

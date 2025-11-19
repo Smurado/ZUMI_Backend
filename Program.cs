@@ -98,9 +98,9 @@ api.MapRolleEndpoints();
 api.MapKooperationseinrichtungEndpoints();
 api.MapMaterialienEndpoints();
 api.MapSdgEndpoints();
-// Füge hier weitere hinzu, z.B. api.MapRolleEndpoints(); usw.
 api.MapTodoEndpoints();
 api.MapErklaerbildEndpoints();
 api.MapApiRootEndpoints();
+api.MapFeedbackEndpoints();
 
 app.Run();

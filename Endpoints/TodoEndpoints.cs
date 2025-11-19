@@ -60,7 +60,7 @@ public static class TodoEndpoints
         // GET /api/v1/projekte/{projekt_id}/todos - Todos für Projekt
         endpoints.MapGet("/projekte/{projekt_id:guid}/todos", async (Guid projekt_id, ApplicationDbContext db, IMapper mapper) =>
         {
-            var todos = await db.Todos.Where(t => t.ProjektId == projekt_id).ToListAsync();
+            var todos = await db.Todos.Where(t => t.projectid == projekt_id).ToListAsync();
             return mapper.Map<List<TodoDto>>(todos);
         })
         .RequireAuthorization()

@@ -20,7 +20,7 @@ namespace ZUMI_Backend.Controllers
 
         // GET: api/projekt
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Projekt>>> GetProjekte()
+        public async Task<ActionResult<IEnumerable<Project>>> GetProjekte()
         {
             return await _context.Projekte
                 .Include(p => p.Projektstatus)  // Beziehungen laden
@@ -30,7 +30,7 @@ namespace ZUMI_Backend.Controllers
 
         // GET: api/projekt/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<Projekt>> GetProjekt(Guid id)
+        public async Task<ActionResult<Project>> GetProjekt(Guid id)
         {
             var projekt = await _context.Projekte
                 .Include(p => p.Projektstatus)
@@ -43,19 +43,19 @@ namespace ZUMI_Backend.Controllers
 
         // POST: api/projekt
         [HttpPost]
-        public async Task<ActionResult<Projekt>> CreateProjekt(Projekt projekt)
+        public async Task<ActionResult<Project>> CreateProjekt(Project project)
         {
-            _context.Projekte.Add(projekt);
+            _context.Projekte.Add(project);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetProjekt), new { id = projekt.Id }, projekt);
+            return CreatedAtAction(nameof(GetProjekt), new { id = project.Id }, project);
         }
 
         // PUT: api/projekt/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProjekt(Guid id, Projekt projekt)
+        public async Task<IActionResult> UpdateProjekt(Guid id, Project project)
         {
-            if (id != projekt.Id) return BadRequest();
-            _context.Entry(projekt).State = EntityState.Modified;
+            if (id != project.Id) return BadRequest();
+            _context.Entry(project).State = EntityState.Modified;
             await _context.SaveChangesAsync();
             return NoContent();
         }

@@ -18,7 +18,7 @@ namespace ZUMI_Backend.Models
         public virtual Person Person { get; set; }
 
         [ForeignKey(nameof(ProjektId))]
-        public virtual Projekt Projekt { get; set; }
+        public virtual Project Project { get; set; }
     }
 }
 

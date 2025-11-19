@@ -5,7 +5,7 @@ namespace ZUMI_Backend.Data
 {
     public class ApplicationDbContext : DbContext
     {
-        public DbSet<Projekt> Projekte { get; set; }
+        public DbSet<Project> Projekte { get; set; }
         public DbSet<Projektstatus> Projektstatuses { get; set; }
         public DbSet<Rolle> Rollen { get; set; }
         public DbSet<SustainableDevelopmentGoal> SustainableDevelopmentGoals { get; set; }
@@ -18,34 +18,40 @@ namespace ZUMI_Backend.Data
         public DbSet<ProjektPerson> ProjektPersons { get; set; }
         public DbSet<Erklaerbild> Erklaerbilder { get; set; }
         
-        public DbSet<Materialien> Materialien { get; set; }
+        public DbSet<Material> Materialien { get; set; }
         
         // Constructor for Dependency Injection
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
         
         public DbSet<OutstandingToken> OutstandingTokens { get; set; }
         public DbSet<BlacklistedToken> BlacklistedTokens { get; set; }
+        
+        public DbSet<Feedback> Feedback { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
             
-            // Projekt <-> ustainableDevelopmentGoal
-            modelBuilder.Entity<Projekt>()
+            modelBuilder.Entity<Project>().ToTable("projects");
+            modelBuilder.Entity<Projektstatus>().ToTable("projectstate");
+            modelBuilder.Entity<Kooperationseinrichtung>().ToTable("Kooperationseinrichtungen");
+            modelBuilder.Entity<Material>().ToTable("Materialien");
+            
+            modelBuilder.Entity<Project>()
                 .HasMany(p => p.Sdgs)
                 .WithMany(s => s.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektSDG"));
             
-            modelBuilder.Entity<Projekt>()
+            modelBuilder.Entity<Project>()
                 .HasMany(p => p.Todos);
             
             // Projekt <-> Kooperationseinrichtung (through ProjektKooperationseinrichtung)
-            modelBuilder.Entity<Projekt>()
+            modelBuilder.Entity<Project>()
                 .HasMany(p => p.Kooperationseinrichtungen)
                 .WithMany(k => k.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektKooperationseinrichtung"));
             
-            modelBuilder.Entity<Projekt>()
+            modelBuilder.Entity<Project>()
                 .HasMany(p =>p.Materialien)
                 .WithMany(m => m.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektMaterialien"));
@@ -60,7 +66,7 @@ namespace ZUMI_Backend.Data
                 .HasForeignKey(pp => pp.PersonId);
 
             modelBuilder.Entity<ProjektPerson>()
-                .HasOne(pp => pp.Projekt)
+                .HasOne(pp => pp.Project)
                 .WithMany(pr => pr.Personen)
                 .HasForeignKey(pp => pp.ProjektId);
 
@@ -79,6 +85,29 @@ namespace ZUMI_Backend.Data
                 .HasOne(bt => bt.Token)
                 .WithMany()
                 .HasForeignKey(bt => bt.TokenId);
+            
+            modelBuilder.Entity<Feedback>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+
+                entity.Property(f => f.Category).HasConversion<int>();
+                entity.Property(f => f.AffectedComponent).HasConversion<int>();
+
+                entity.Property(f => f.Subject).HasMaxLength(200).IsRequired();
+                entity.Property(f => f.Message).HasMaxLength(4000).IsRequired();
+                entity.Property(f => f.AdminComment).HasMaxLength(2000);
+
+                entity.HasOne(f => f.User)
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(f => f.Recipient)
+                    .WithMany()
+                    .HasForeignKey("RecipientId")
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
             
             
         }

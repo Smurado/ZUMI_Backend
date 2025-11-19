@@ -16,8 +16,8 @@ namespace ZUMI_Backend.Models
         [MaxLength(20)]
         public string Status { get; set; } = "offen";  // Choices: offen, in_bearbeitung, abgeschlossen
 
-        public Guid ProjektId { get; set; }
-        [ForeignKey(nameof(ProjektId))]
-        public virtual Projekt Projekt { get; set; }
+        public Guid projectid { get; set; }
+        [ForeignKey(nameof(projectid))]
+        public virtual Project Project { get; set; }
     }
 }

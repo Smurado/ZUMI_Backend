@@ -1,9 +1,9 @@
 ### POST Login to get JWT Token
-POST http://localhost:5132/api/v1/auth/token/
+POST http://localhost/api/v1/auth/token/
 Content-Type: application/json
 
 {
-  "Email": "test@testung.de",
+  "Email": "test@weißnicht.de",
   "Password": "test"
 }
 

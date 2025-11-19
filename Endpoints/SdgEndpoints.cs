@@ -25,7 +25,7 @@ public static class SdgEndpoints
         endpoints.MapGet("/sdg", async (ApplicationDbContext db, IMapper mapper) =>
         {
             var sdgs = await db.SustainableDevelopmentGoals.ToListAsync();
-            return mapper.Map<List<SustainableDevelopmentGoalDto>>(sdgs);
+            return mapper.Map<List<SdgDto>>(sdgs);
         })
         .AllowAnonymous()
         .WithName("SdgList")
@@ -35,7 +35,7 @@ public static class SdgEndpoints
         endpoints.MapGet("/sdg/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
         {
             var sdg = await db.SustainableDevelopmentGoals.FindAsync(id);
-            return sdg != null ? Results.Ok(mapper.Map<SustainableDevelopmentGoalDto>(sdg)) : Results.NotFound();
+            return sdg != null ? Results.Ok(mapper.Map<SdgDto>(sdg)) : Results.NotFound();
         })
         .AllowAnonymous()
         .WithName("SdgRetrieve")

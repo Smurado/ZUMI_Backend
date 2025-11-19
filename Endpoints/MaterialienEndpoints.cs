@@ -11,7 +11,7 @@ public static class MaterialienEndpoints
     public static void MapMaterialienEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // POST  - Create /api/v1/materialien/create/
-        endpoints.MapPost("/materialien/create/", async (Materialien newMaterial, ApplicationDbContext db) =>
+        endpoints.MapPost("/materialien/create/", async (Material newMaterial, ApplicationDbContext db) =>
         {
             db.Materialien.Add(newMaterial);
             await db.SaveChangesAsync();
@@ -42,7 +42,7 @@ public static class MaterialienEndpoints
         .WithOpenApi();
 
         // PUT /api/v1/material/{id}/update - Update
-        endpoints.MapPut("/material/{id:guid}/update", async (Guid id, Materialien updated, ApplicationDbContext db) =>
+        endpoints.MapPut("/material/{id:guid}/update", async (Guid id, Material updated, ApplicationDbContext db) =>
         {
             var existing = await db.Materialien.FindAsync(id);
             if (existing == null) return Results.NotFound();

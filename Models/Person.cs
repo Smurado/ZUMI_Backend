@@ -44,7 +44,7 @@ namespace ZUMI_Backend.Models
         [ForeignKey(nameof(AltersgruppeId))]
         public virtual Altersgruppe Altersgruppe { get; set; }
 
-        public Guid RolleId { get; set; }
+        public Guid? RolleId { get; set; }
         [ForeignKey(nameof(RolleId))]
         public virtual Rolle Rolle { get; set; }
 

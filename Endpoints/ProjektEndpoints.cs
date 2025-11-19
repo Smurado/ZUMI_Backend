@@ -4,6 +4,7 @@ using System.Security.Claims;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
+using ZUMI_Backend.Models.Maps;
 
 namespace ZUMI_Backend.Endpoints;
 
@@ -12,36 +13,34 @@ public static class ProjektEndpoints
     public static void MapProjektEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // POST /api/v1/projekte - Projekt erstellen
-        endpoints.MapPost("/projekte/create/", async (Projekt newProjekt, ApplicationDbContext db, HttpContext http) =>
+        endpoints.MapPost("/projekte/create/", async (Project newProject, ApplicationDbContext db, HttpContext http) =>
         {
             var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
-            newProjekt.Id = Guid.NewGuid();
+            newProject.Id = Guid.NewGuid();
             
             // Projekt is always aktive at creation.
             // Hardinsertet into the DB -> cannot be null!
-            if(newProjekt.ProjektstatusId == null)
-                newProjekt.ProjektstatusId = db.Projektstatuses.FirstOrDefault(ps => ps.Bezeichnung == "Aktiv")!.Id;
+            if(newProject.ProjektstatusId == null)
+                newProject.ProjektstatusId = db.Projektstatuses.FirstOrDefault(ps => ps.Bezeichnung == "Aktiv")!.Id;
                 
-            db.Projekte.Add(newProjekt);
-            
+            db.Projekte.Add(newProject);
             
             db.ProjektPersons.Add(new ProjektPerson
             {
-                ProjektId = newProjekt.Id,
+                ProjektId = newProject.Id,
                 PersonId = userId,
                 IsOwner = true
             });
             
-            
             await db.SaveChangesAsync();
-            return Results.Created($"/api/v1/projekte/{newProjekt.Id}", newProjekt);
+            return Results.Created($"/api/v1/projekte/{newProject.Id}", newProject);
         })
         .RequireAuthorization()
         .WithName("ProjektCreate")
         .WithOpenApi();
         
         // PUT /api/v1/projekte/{id}/update - Projekt aktualisieren
-        endpoints.MapPut("/projekte/{id:guid}/update", async (Guid id, Projekt updated, ApplicationDbContext db) =>
+        endpoints.MapPut("/projekte/{id:guid}/update", async (Guid id, Project updated, ApplicationDbContext db) =>
         {
             var existing = await db.Projekte.FindAsync(id);
             if (existing == null) return Results.NotFound();
@@ -86,44 +85,33 @@ public static class ProjektEndpoints
                 .Include(p => p.Personen)
                 .Include(p => p.Kooperationseinrichtungen)
                 .Include(p => p.Materialien)
+                .Include(p => p.Todos)
                 .ToListAsync();
 
-            return mapper.Map<List<ProjektDto>>(projekte);
+            return mapper.Map<List<ProjectDto>>(projekte);
         })
         .RequireAuthorization()
         .WithName("ProjektList")
         .WithOpenApi();
 
-        // GET /api/v1/projekte/meine 
-        endpoints.MapGet("/projekte/meine", async (ApplicationDbContext db, HttpContext http, IMapper mapper) =>
-        {
-            var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
-            var projekte = await db.Projekte
-                .Where(p => p.Personen.Any(pe => pe.PersonId == userId))
-                .Include(p => p.Projektstatus)
-                .Include(p => p.Sdgs)
-                .Include(p => p.Personen)
-                .Include(p => p.Kooperationseinrichtungen)
-                .Include(p => p.Materialien)
-                .ToListAsync();
-
-            return mapper.Map<List<ProjektDto>>(projekte);
-        })
-        .RequireAuthorization()
-        .WithName("ProjektMeine")
-        .WithOpenApi();
-
         // GET /api/v1/projekte/{id} - Projekt abrufen
-        endpoints.MapGet("/projekte/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/projekte/{id:guid}", async (Guid id, ApplicationDbContext db) =>
         {
             var projekt = await db.Projekte
                 .Include(p => p.Projektstatus)
+                .Include(p => p.Personen).ThenInclude(pp => pp.Person)                    
                 .Include(p => p.Sdgs)
-                .Include(p => p.Personen)
                 .Include(p => p.Kooperationseinrichtungen)
                 .Include(p => p.Materialien)
+                .Include(p => p.Todos)
+                .Include(p => p.Erklaerbilder)
                 .FirstOrDefaultAsync(p => p.Id == id);
-            return projekt != null ? Results.Ok(mapper.Map<ProjektDto>(projekt)) : Results.NotFound();
+            
+            if (projekt == null) return Results.NotFound();
+
+            var projectDto = projekt.MapToProjectDto();
+            
+            return Results.Ok(projectDto);
         })
         .RequireAuthorization()
         .WithName("ProjektRetrieve")
@@ -155,7 +143,7 @@ public static class ProjektEndpoints
         
             if (projekt == null) return Results.NotFound();
 
-            var materialDtos = mapper.Map<List<MaterialDto>>(projekt.Materialien).Where(m => m.vorhanden == true);
+            var materialDtos = mapper.Map<List<MaterialDto>>(projekt.Materialien).Where(m => m.Vorhanden == true);
         
             return materialDtos.Count() != 0 ? Results.Ok(materialDtos) : Results.NotFound();
         })
@@ -164,8 +152,8 @@ public static class ProjektEndpoints
         .WithOpenApi();
         
         // A person wants to like, participate or own a project
-        // POST /api/v1/projekte/{id}/febe/
-        endpoints.MapPost("/projekte/{id:guid}/febe", async (ProjektPersonUpdateDto projektPersonUpdateDto, Guid id, ApplicationDbContext db, IMapper mapper, HttpContext http) =>
+        // POST /api/v1/projekte/{id}/
+        endpoints.MapPost("/projekte/{id:guid}/interaktion", async (ProjektPersonUpdateDto projektPersonUpdateDto, Guid id, ApplicationDbContext db, IMapper mapper, HttpContext http) =>
         {
             var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
             var projekt = await db.Projekte
@@ -202,7 +190,7 @@ public static class ProjektEndpoints
             await db.SaveChangesAsync();
             
             // Return the updated project
-            return Results.Ok(mapper.Map<ProjektDto>(projekt));
+            return Results.Ok(mapper.Map<ProjectDto>(projekt));
         })
         .RequireAuthorization()
         .WithName("ProjektUpdateFebe")
@@ -235,6 +223,54 @@ public static class ProjektEndpoints
         })
         .RequireAuthorization()
         .WithName("ProjektDelete")
+        .WithOpenApi();
+
+        // GET /api/v1/projekte/startseite
+        // Liefert alle Projekte, bei denen der User Owner, Liker oder Mitmacher ist
+        // -> nur: ProjektId, Kurztitel, Titelbild, SDG-Ids + Kategorie-Flags
+        endpoints.MapGet("/projekte/startseite", async (ApplicationDbContext db, HttpContext http) =>
+        {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Results.Unauthorized();
+            }
+
+            var userId = Guid.Parse(userIdClaim);
+
+            var projektPersonen = await db.ProjektPersons
+                .AsNoTracking()
+                .Where(pp => pp.PersonId == userId &&
+                             (pp.IsOwner || pp.IsLiked || pp.IsParticipating))
+                .Include(pp => pp.Project)
+                    .ThenInclude(p => p.Sdgs)
+                .ToListAsync();
+
+            int GetCategory(ProjektPerson pp)
+            {
+                // Mapping:
+                // 0 = Owner, 1 = Liked, 2 = Participating
+                if (pp.IsOwner) return 0;
+                if (pp.IsLiked) return 1;
+                if (pp.IsParticipating) return 2;
+
+                // Fallback, falls mal alle Flags false wären
+                return -1;
+            }
+
+            var items = projektPersonen.Select(pp => new ProjektStartItemDto
+            {
+                ProjektId = pp.ProjektId,
+                Kurztitel = pp.Project.Kurztitel,
+                Titelbild = pp.Project.Titelbild,
+                SdgIds = pp.Project.Sdgs.Select(s => s.Id).ToList(),
+                Category = GetCategory(pp)
+            }).ToList();
+
+            return Results.Ok(items);
+        })
+        .RequireAuthorization()
+        .WithName("ProjektStartseite")
         .WithOpenApi();
     }
 }

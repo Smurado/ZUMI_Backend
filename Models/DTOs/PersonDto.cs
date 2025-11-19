@@ -9,7 +9,7 @@
         public string Plz { get; set; }
         public string Sprache { get; set; }
         
-        public Guid RolleId { get; set; }
+        public Guid? RolleId { get; set; }
         // Navigation: Flach halten, z. B. nur IDs oder einfache DTOs
         public List<Guid> ProjekteIds { get; set; } = new List<Guid>();
     }

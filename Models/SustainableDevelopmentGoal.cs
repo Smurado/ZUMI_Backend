@@ -14,6 +14,6 @@ namespace ZUMI_Backend.Models
         [MaxLength(255)]
         public string Name { get; set; }
 
-        public virtual ICollection<Projekt> Projekte { get; set; } = new List<Projekt>();  // Many-to-Many through ProjektSDG
+        public virtual ICollection<Project> Projekte { get; set; } = new List<Project>();  // Many-to-Many through ProjektSDG
     }
 }

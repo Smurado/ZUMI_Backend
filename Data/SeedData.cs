@@ -38,7 +38,7 @@ namespace ZUMI_Backend.Data
                 };
                 context.Persons.Add(person);
 
-                var projekt = new Projekt
+                var projekt = new Project
                 {
                     Kurztitel = "TestProjekt",
                     Beschreibung = "Ein Beispiel-Projekt",
@@ -63,7 +63,7 @@ namespace ZUMI_Backend.Data
                 projekt.Personen.Add(new ProjektPerson
                 {
                     Person = person,
-                    Projekt = projekt
+                    Project = projekt
                 });
                 context.Projekte.Add(projekt);
 

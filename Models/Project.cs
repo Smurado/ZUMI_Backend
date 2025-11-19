@@ -1,4 +1,3 @@
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -6,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ZUMI_Backend.Models
 {
-    public class Projekt
+    public class Project
     {
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -46,6 +45,12 @@ namespace ZUMI_Backend.Models
 
         public string? LetztesUpdate { get; set; }  // Als string, da TextField; ggf. zu DateTime ändern, wenn timestamp
 
+        public double GesamtBudget { get; set; }
+
+        public double SpentBudget { get; set; }
+        
+        public string SpendenLink { get; set; }
+        
         // Foreign Key
         public Guid ProjektstatusId { get; set; }
         [ForeignKey(nameof(ProjektstatusId))]
@@ -54,8 +59,11 @@ namespace ZUMI_Backend.Models
         // Many-to-Many
         public virtual ICollection<ProjektPerson> Personen { get; set; } = new List<ProjektPerson>();  // Through ProjektPerson
         public virtual ICollection<SustainableDevelopmentGoal> Sdgs { get; set; } = new List<SustainableDevelopmentGoal>();  // Through ProjektSDG
+        
         public virtual ICollection<Kooperationseinrichtung> Kooperationseinrichtungen{ get; set; } = new List<Kooperationseinrichtung>();  // Through ProjektKooperationseinrichtung
-        public virtual ICollection<Materialien> Materialien { get; set; } = new List<Materialien>();  // Through ProjektMaterialien
+        public virtual ICollection<Material> Materialien { get; set; } = new List<Material>();  // Through ProjektMaterialien
         public virtual ICollection<Todo> Todos { get; set; } = new List<Todo>();
+        
+        public virtual ICollection<Erklaerbild> Erklaerbilder { get; set; } = new List<Erklaerbild>();
     }
 }
