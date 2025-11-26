@@ -19,7 +19,7 @@ namespace ZUMI_Backend.Models
             CreateMap<Projektstatus, ProjektstatusDto>();
             CreateMap<Todo, TodoDto>();
             CreateMap<Erklaerbild, ErklaerbildDto>(); 
-            CreateMap<SustainableDevelopmentGoal, SdgDto>();
+            CreateMap<Sdg, SdgDto>();
             CreateMap<Kooperationseinrichtung, KooperationseinrichtungDto>();
             CreateMap<Material, MaterialDto>();
             CreateMap<Rolle, RolleDto>();

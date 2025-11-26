@@ -9,9 +9,10 @@ namespace ZUMI_Backend.Models
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public Guid ProjektId { get; set; }
+        
         [ForeignKey(nameof(ProjektId))]
         public virtual Project Project { get; set; }
 
-        public string url { get; set; }  // URL/Path zu ImageField
+        public string Url { get; set; } = null!; // URL/Path zu ImageField
     }
 }

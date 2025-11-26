@@ -62,20 +62,37 @@ public static class FeedbackEndpoints
         // ╚══════════════════════════════════════════════════════════════════════
         group.MapPost("/", async (CreateFeedbackDto dto, ApplicationDbContext db, HttpContext http, IMapper mapper) =>
         {
-            var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            Person? sender = null; // Standard: anonym (null für Guests)
 
-            var sender = await db.Persons.FindAsync(userId);
-            if (sender == null) return Results.Unauthorized();
+            // Optional: Wenn authentifiziert, lade den User als Sender
+            if (http.User.Identity?.IsAuthenticated == true)
+            {
+                var userIdString = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString))
+                {
+                    return Results.Unauthorized(); // Falls Claim fehlt, ablehnen
+                }
 
-            Person? recipient = db.Persons.FirstOrDefault();
+                var userId = Guid.Parse(userIdString);
+                sender = await db.Persons.FindAsync(userId);
+                if (sender == null)
+                {
+                    return Results.Unauthorized(); // User nicht gefunden
+                }
+            }
+
+            Person? recipient = null; // Standard: null, falls nicht angegeben
             if (dto.RecipientId.HasValue)
             {
                 recipient = await db.Persons.FindAsync(dto.RecipientId.Value);
-                if (recipient == null) return Results.BadRequest("Recipient nicht gefunden");
+                if (recipient == null)
+                {
+                    return Results.BadRequest("Recipient nicht gefunden");
+                }
             }
 
             var feedback = mapper.Map<Feedback>(dto);
-            feedback.User = sender;
+            feedback.User = sender; // Kann null sein für anonymes Feedback
             feedback.Recipient = recipient;
 
             db.Feedback.Add(feedback);
@@ -84,6 +101,7 @@ public static class FeedbackEndpoints
             var resultDto = mapper.Map<FeedbackDto>(feedback);
             return Results.Created($"/api/v1/feedback/{feedback.Id}", resultDto);
         })
+        .AllowAnonymous() // Endpunkt öffentlich – keine Authentifizierung erforderlich
         .WithName("FeedbackCreate")
         .WithOpenApi();
 

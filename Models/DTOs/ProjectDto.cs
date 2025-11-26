@@ -6,19 +6,20 @@
 
         public string Kurztitel { get; set; } = null!;
         public string? Kurzbeschreibung { get; set; }
-        public string Titelbild { get; set; } = null!;
-        public string Beschreibung { get; set; } = null!;
-        public string Vorbereitungszeitraum { get; set; } = null!;
-        public string Umsetzungszeitraum { get; set; } = null!;
+        public string? Titelbild { get; set; } = null!;
+        public string? Beschreibung { get; set; } = null!;
+        public string? Vorbereitungszeitraum { get; set; } = null!;
+        public string? Umsetzungszeitraum { get; set; } = null!;
         public string? StandortLink { get; set; }
-        public string Adresse { get; set; } = null!;
-        public string Plz { get; set; } = null!;
+        public string? Adresse { get; set; } = null!;
+        public string? Plz { get; set; } = null!;
         public string? Spendeninformationen { get; set; }
         public string? WeitereInfos { get; set; }
         public string? LetztesUpdate { get; set; }
-        public double GesamtBudget { get; set; }
-        public double SpentBudget { get; set; }
-        public string SpendenLink { get; set; } = null!;
+        public double? GesamtBudget { get; set; }
+        public double? SpentBudget { get; set; }
+        public string? SpendenLink { get; set; } = null!;
+        public string? Finance { get; set; }
 
         // → Vollständige Objekte (keine IDs mehr!)
         public ProjektstatusDto Projektstatus { get; set; } = null!;

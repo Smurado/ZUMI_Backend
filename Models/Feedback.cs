@@ -6,7 +6,7 @@ public class Feedback
     public Guid Id { get; set; } = Guid.NewGuid();
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     
-    public Person User { get; set; } = null!;
+    public Person? User { get; set; }
 
     // Optional: An wen geht das Feedback (z. B. Support-Team, Admin, oder eine andere Person)
     public Person Recipient { get; set; }

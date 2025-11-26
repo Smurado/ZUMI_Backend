@@ -1,29 +1,22 @@
-using System;
-using Microsoft.EntityFrameworkCore;
-using ZUMI_Backend.Models;
+using ZUMI_Backend.Endpoints;
 
 namespace ZUMI_Backend.Data
 {
+    using Microsoft.EntityFrameworkCore;
+    using Models;
+    using Models.Enums;
     public static class SeedData
     {
         public static void Initialize(IServiceProvider serviceProvider)
         {
-            using (var context = new ApplicationDbContext(serviceProvider.GetRequiredService<DbContextOptions<ApplicationDbContext>>()))
+            using (var context =
+                   new ApplicationDbContext(
+                       serviceProvider.GetRequiredService<DbContextOptions<ApplicationDbContext>>()))
             {
-                if (context.Projekte.Any()) return;  // Seed nur, wenn leer
-
-                // Beispiel-Daten
-                var status = new Projektstatus { Bezeichnung = "Aktiv" };
-                context.Projektstatuses.Add(status);
+                if (context.Projekte.Any()) return; // Seed nur, wenn leer
 
                 var rolle = new Rolle { Beschreibung = "Admin" };
                 context.Rollen.Add(rolle);
-
-                var sdg = new SustainableDevelopmentGoal { Nummer = 13, Name = "Klimaschutz" };
-                context.SustainableDevelopmentGoals.Add(sdg);
-
-                var altersgruppe = new Altersgruppe { AlterMin = "18", AlterMax = "30" };
-                context.Altersgruppen.Add(altersgruppe);
 
                 var person = new Person
                 {
@@ -33,8 +26,7 @@ namespace ZUMI_Backend.Data
                     LastName = "Mustermann",
                     Plz = "12345",
                     Sprache = "Deutsch",
-                    Rolle = rolle,
-                    Altersgruppe = altersgruppe
+                    Altersgruppe = Altersgruppe.Erwachsene
                 };
                 context.Persons.Add(person);
 
@@ -46,9 +38,10 @@ namespace ZUMI_Backend.Data
                     Adresse = "TestAdresse",
                     Vorbereitungszeitraum = "1 Monat",
                     Umsetzungszeitraum = "3 Monate",
-                    Projektstatus = status,
+                    Projektstatus = Projektstatus.InVorbereitung,
                     Titelbild = "test.jpg",
-                    Kooperationseinrichtungen = new List<Kooperationseinrichtung>{
+                    Kooperationseinrichtungen = new List<Kooperationseinrichtung>
+                    {
                         new()
                         {
                             Name = "Test",
@@ -59,7 +52,9 @@ namespace ZUMI_Backend.Data
                         }
                     }
                 };
-                projekt.Sdgs.Add(sdg);
+                projekt.Sdgs.AddRange(Sdg.AffordableAndCleanEnergy, Sdg.CleanWaterAndSanitation, Sdg.GenderEquality)
+
+            ;
                 projekt.Personen.Add(new ProjektPerson
                 {
                     Person = person,

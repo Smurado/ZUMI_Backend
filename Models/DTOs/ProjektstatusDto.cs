@@ -2,6 +2,6 @@
 
 public class ProjektstatusDto
 {
-    public Guid Id { get; set; }
+    public int Id { get; set; }
     public string Bezeichnung { get; set; }
 }

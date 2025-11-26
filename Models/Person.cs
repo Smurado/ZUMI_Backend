@@ -1,10 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace ZUMI_Backend.Models
 {
+    using System.ComponentModel.DataAnnotations;
+    using System.ComponentModel.DataAnnotations.Schema;
+    using Enums;
+    
     public class Person
     {
         [Key]
@@ -38,15 +37,13 @@ namespace ZUMI_Backend.Models
         public string? FirstName { get; set; }
         
         public string? LastName { get; set; }
-
-        // Foreign Keys
-        public Guid? AltersgruppeId { get; set; }
-        [ForeignKey(nameof(AltersgruppeId))]
+        
         public virtual Altersgruppe Altersgruppe { get; set; }
 
-        public Guid? RolleId { get; set; }
+        // TODO muss ausgebaut werden.. mit Rollensystem!
+        /*public Guid? RolleId { get; set; }
         [ForeignKey(nameof(RolleId))]
-        public virtual Rolle Rolle { get; set; }
+        public virtual Rolle Rolle { get; set; }*/
 
         // Many-to-Many
         public virtual ICollection<ProjektPerson> Projekte { get; set; } = new List<ProjektPerson>();  // Through ProjektPerson

@@ -1,5 +1,6 @@
 ﻿namespace ZUMI_Backend.Models.DTOs
 {
+    using Enums;
     public class PersonDto
     {
         public Guid Id { get; set; }
@@ -9,8 +10,8 @@
         public string Plz { get; set; }
         public string Sprache { get; set; }
         
-        public Guid? RolleId { get; set; }
-        // Navigation: Flach halten, z. B. nur IDs oder einfache DTOs
+        public Altersgruppe Altersgruppe { get; set; }
+        
         public List<Guid> ProjekteIds { get; set; } = new List<Guid>();
     }
 }

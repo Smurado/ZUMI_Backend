@@ -63,12 +63,34 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";  // Für AJAX/Frontend-Requests
+    options.SuppressXFrameOptionsHeader = false;  // Falls iFrames nötig
+});
+
 var app = builder.Build();
+
+app.UseHttpsRedirection();
+    
+// Nur für andere StaticFiles, nicht uploads
+app.UseStaticFiles(new StaticFileOptions
+{
+  RequestPath = "",  // Oder spezifisch: FileProvider für andere Ordner
+  // Kein Serve für /uploads – blockt direkten Access
+});
 
 // CORS, Auth, etc.
 app.UseCors();
+
+app.UseRouting();
+
 app.UseAuthentication();
+app.UseAntiforgery(); // Fix: Ermöglicht CSRF-Token-Handling für Forms
 app.UseAuthorization();
+
+
+app.UseRouting();
 
 // Seed Data
 /*using (var scope = app.Services.CreateScope())
@@ -84,8 +106,6 @@ app.UseAuthorization();
     app.UseSwaggerUI();
 //}
 
-app.UseHttpsRedirection();
-
 // API-Gruppe
 var api = app.MapGroup("/api/v1");
 
@@ -99,8 +119,9 @@ api.MapKooperationseinrichtungEndpoints();
 api.MapMaterialienEndpoints();
 api.MapSdgEndpoints();
 api.MapTodoEndpoints();
-api.MapErklaerbildEndpoints();
+api.MapBildEndpoints();
 api.MapApiRootEndpoints();
 api.MapFeedbackEndpoints();
+api.MapAltersgruppeEndpoints();
 
 app.Run();

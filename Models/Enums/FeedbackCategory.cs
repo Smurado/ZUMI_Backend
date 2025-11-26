@@ -7,7 +7,7 @@ public enum FeedbackCategory
 
     [Display(Name = "Fehler / Bug")]
     Bug = 1,
-
+    
     [Display(Name = "Feature-Wunsch")]
     FeatureRequest = 2,
 

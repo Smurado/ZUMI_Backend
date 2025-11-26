@@ -17,7 +17,7 @@ public static class KooperationseinrichtungEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/api/v1/kooperationseinrichtung/{newKooperationseinrichtung.Id}", newKooperationseinrichtung);
         })
-        .RequireAuthorization()
+        .AllowAnonymous()
         .WithName("KooperationseinrichtungCreate")
         .WithOpenApi();
 
