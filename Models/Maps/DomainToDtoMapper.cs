@@ -30,10 +30,25 @@ public static class DomainToDtoMapper
             Finance = project.Finance,
             
             // Status
-            Projektstatus = ((Projektstatus)project.Projektstatus).MapToProjektstatusDto(),
+            Projektstatus = ((ProjektStatus)project.ProjektStatus).MapToProjektstatusDto(),
 
             // Many-to-Many & One-to-Many Collections
-            Personen = project.Personen?.Select(p => p.Person?.MapToPersonDto()).Where(p => p != null).ToList() ?? new List<PersonDto>(),
+            
+            Personen = project.Personen?.Select(pp => new PersonRoleDto
+        {
+            PersonId = pp.PersonId,
+            IsLiked = pp.IsLiked,
+            IsOwner = pp.IsOwner,
+            IsParticipating = pp.IsParticipating,
+            
+            //Direkte Mapping der Summary-Felder
+            FirstName = pp.Person?.FirstName ?? string.Empty,
+            LastName = pp.Person?.LastName ?? string.Empty,
+            Email = pp.Person?.Email ?? string.Empty,
+        }).Where(pr => !string.IsNullOrEmpty(pr.FirstName) && !string.IsNullOrEmpty(pr.LastName)).ToList() ?? new List<PersonRoleDto>(),
+            
+            
+            //Personen = project.Personen?.Select(p => p.Person?.MapToPersonDto()).Where(p => p != null).ToList() ?? new List<PersonDto>(),
             
             Sdgs = project.SdgValues?.Select(v => ((Sdg)v).MapToSdgDto()).ToList() ?? new List<SdgDto>(),
             
@@ -107,10 +122,12 @@ public static class DomainToDtoMapper
         // Collections bleiben leer (z. B. Personen via Owner-Add)
     }
     
+    // Apply Update for Project
     public static void ApplyUpdateFromDto(this Project project, UpdateProjectDto dto)
     {
         if (dto == null) return;
 
+        // Basis-Felder updaten
         project.Kurztitel = dto.Kurztitel ?? project.Kurztitel;
         project.Kurzbeschreibung = dto.Kurzbeschreibung ?? project.Kurzbeschreibung;
         project.Titelbild = dto.Titelbild ?? project.Titelbild;
@@ -122,18 +139,23 @@ public static class DomainToDtoMapper
         project.Plz = dto.Plz ?? project.Plz;
         project.Spendeninformationen = dto.Spendeninformationen ?? project.Spendeninformationen;
         project.WeitereInfos = dto.WeitereInfos ?? project.WeitereInfos;
-        project.LetztesUpdate = dto.LetztesUpdate ?? DateTime.UtcNow.ToString("yyyy-MM-dd");  // Auto-Update
+        
+        // Immer das aktuelle Datum setzen bei einem Update
+        project.LetztesUpdate = DateTime.UtcNow.ToString("yyyy-MM-dd"); 
+        
         project.GesamtBudget = dto.GesamtBudget ?? project.GesamtBudget;
         project.SpentBudget = dto.SpentBudget ?? project.SpentBudget;
         project.SpendenLink = dto.SpendenLink ?? project.SpendenLink;
         project.Finance = dto.Finance ?? project.Finance;
-        project.Projektstatus = dto.Projektstatus ?? project.Projektstatus;  // Enum bleibt
+        project.ProjektStatus = dto.Projektstatus ?? project.ProjektStatus;
 
-        // SDG-Update: Vollständig ersetzen (Clear + AddRange)
+        // SDG-Update: Sicherer machen
         if (dto.SdgValues != null)
         {
+            if (project.SdgValues == null) project.SdgValues = new List<int>();
+            
             project.SdgValues.Clear();
-            project.SdgValues.AddRange(dto.SdgValues.Distinct().Where(v => v >= 1 && v <= 17));  // Validierung + Dedup
+            project.SdgValues.AddRange(dto.SdgValues.Distinct().Where(v => v >= 1 && v <= 17));
         }
     }
     
@@ -144,12 +166,19 @@ public static class DomainToDtoMapper
             .ToList() ?? new List<ProjectDto>();
     }
 
-    public static ProjektstatusDto MapToProjektstatusDto(this Projektstatus status) 
+    public static ProjektstatusDto MapToProjektstatusDto(this ProjektStatus status) 
     => status == null ? null : new ProjektstatusDto
-        {
+    {
             Id = (int)status,
             Bezeichnung = status.GetDisplayName(),
-        };
+    };
+    
+    public static TodoStatusDto MapToTodoStatusDto(this TodoStatus status)
+    => status == null ? null : new TodoStatusDto
+    {
+        Id = (int)status,
+        Bezeichnung = status.GetDisplayName(),
+    };
     
     public static MaterialDto MapToMaterialDto(this Material material)
     {
@@ -196,12 +225,106 @@ public static class DomainToDtoMapper
         Name = k.Name
     };
 
+    public static List<KooperationseinrichtungDto> MapToKooperationseinritungDtos(
+        this IEnumerable<Kooperationseinrichtung> ks)
+    {
+        return ks?.Select(k => k.MapToKooperationseinrichtungDto())
+            .Where(dto => dto != null)
+            .ToList() ?? new List<KooperationseinrichtungDto>();
+    }
+
     public static TodoDto MapToTodoDto(this Todo todo)
     => todo == null ? null : new TodoDto
     {
         Id = todo.Id, 
         Title = todo.Titel,
-        ProjectId = todo.projectid
+        ProjectId = todo.ProjectId,
+        Status = todo.Status
     };
+
+    public static List<TodoDto> MapToTodoDtos(this IEnumerable<Todo> todos)
+    {
+        return todos?.Select(todo => todo.MapToTodoDto())
+            .Where(dto => dto != null)
+            .ToList() ?? new List<TodoDto>();
+    }
+
+    public static FeedbackDto MapToFeedbackDto(this Feedback feedback)
+    {
+        if (feedback == null) return null;
+
+        return new FeedbackDto()
+        {
+            Id = feedback.Id,
+            Category = feedback.Category.GetDisplayName(),
+            AffectedComponent = feedback.AffectedComponent.GetDisplayName(),
+            Subject = feedback.Subject,
+            Message = feedback.Message,
+            CreatedAt = feedback.CreatedAt,
+
+            // Null-Check for the GUID
+            SenderId = feedback.User?.Id ?? Guid.Empty
+        };
+    }
+
+    public static List<FeedbackDto> MapToFeedbackDtos(this IEnumerable<Feedback> feedbacks)
+    {
+        return feedbacks?.Select(f => f.MapToFeedbackDto())
+            .Where(dto => dto != null)
+            .ToList() ?? new List<FeedbackDto>();
+    }
+    
+    public static FeedbackDetailDto MapToFeedbackDetailDto(this Feedback feedback)
+    {
+        if (feedback == null) return null;
+        
+        return new FeedbackDetailDto
+        {
+            // -- Basis-Felder (aus FeedbackDto) --
+            Id = feedback.Id,
+            Category = feedback.Category.GetDisplayName(),
+            AffectedComponent = feedback.AffectedComponent.GetDisplayName(),
+            Subject = feedback.Subject,
+            Message = feedback.Message,
+            CreatedAt = feedback.CreatedAt,
+            SenderId = feedback.User?.Id ?? Guid.Empty,
+
+            // -- Detail-Felder (aus FeedbackDetailDto) --
+            SenderEmail = feedback.User?.Email, // Annahme: Person hat Email
+            ResolvedAt = feedback.ResolvedAt,
+            RecipientId = feedback.Recipient?.Id,
+        };
+        
+        
+    }
+    
+    public static List<FeedbackDetailDto> MapToFeedbackDetailDtos(this IEnumerable<Feedback> feedbacks)
+    {
+        return feedbacks?.Select(f => f.MapToFeedbackDetailDto())
+            .Where(dto => dto != null)
+            .ToList() ?? new List<FeedbackDetailDto>();
+    }
+    
+    public static Feedback MapToEntity(this CreateFeedbackDto dto, Person? sender, Person? recipient)
+    {
+        return new Feedback
+        {
+            // Da im DTO jetzt echte Enums sind, kein Parsing mehr nötig:
+            Category = dto.Category,
+            AffectedComponent = dto.AffectedComponent,
+                
+            Subject = dto.Subject,
+            Message = dto.Message,
+                
+            // Relationen setzen
+            User = sender,
+            Recipient = recipient,
+                
+            // Standards setzen
+            CreatedAt = DateTimeOffset.UtcNow,
+            IsRead = false,
+            IsResolved = false
+        };
+    }
 }
 

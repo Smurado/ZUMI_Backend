@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.OpenApi.Models;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Endpoints;
 using ZUMI_Backend.Models;
@@ -44,9 +43,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddAutoMapper(cfg => {
-    cfg.LicenseKey = "<eyJhbGciOiJSUzI1NiIsImtpZCI6Ikx1Y2t5UGVubnlTb2Z0d2FyZUxpY2Vuc2VLZXkvYmJiMTNhY2I1OTkwNGQ4OWI0Y2IxYzg1ZjA4OGNjZjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2x1Y2t5cGVubnlzb2Z0d2FyZS5jb20iLCJhdWQiOiJMdWNreVBlbm55U29mdHdhcmUiLCJleHAiOiIxNzk0MDk2MDAwIiwiaWF0IjoiMTc2MjYyNzQ4MyIsImFjY291bnRfaWQiOiIwMTlhNjRjOGIwYWY3YjliOGNlMGQyYmQzZjg2ODY5MyIsImN1c3RvbWVyX2lkIjoiY3RtXzAxazlqY2h4amJybWRzOWVwZXljajBlOGtuIiwic3ViX2lkIjoiLSIsImVkaXRpb24iOiIwIiwidHlwZSI6IjIifQ.TRUquj0PoiDe1F8laoWpR8AkYmdDwRObB3dCpyeU-TI1WzHa0vqFu41JQij9knsmlAQKM4XzrM26qJrwou-drrj5nAIewESC67bkl-TJmLR6ND8R0TPncJcwLm2mYDn2LjaEJSrfEzcoPu0LdD5MG1V7fCnGEzi1dNSVfxquNFc3sYTceoiAKP2Tum531CgeV0VmbEeZ68nXqp3cmc606ep28LJlDWw3madA4mlfT7IjVlKF9sgLxmD8D_MDS7qnCRFk53FNo1CIW23u8IIK4lrg3DOrSWdlWrZ6WEaLGBJil_7C8jcprrGBt-D2k-Xo55tGZW4tbiHjwykB3662QQ>";
-}, typeof(MappingProfile));
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -114,7 +110,6 @@ api.MapAuthEndpoints();
 api.MapProjektEndpoints();
 api.MapPersonEndpoints();
 api.MapProjektstatusEndpoints();
-api.MapRolleEndpoints();
 api.MapKooperationseinrichtungEndpoints();
 api.MapMaterialienEndpoints();
 api.MapSdgEndpoints();

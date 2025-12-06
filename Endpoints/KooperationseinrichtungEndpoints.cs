@@ -2,7 +2,7 @@
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
-using AutoMapper;
+using ZUMI_Backend.Models.Maps;
 
 namespace ZUMI_Backend.Endpoints;
 
@@ -22,20 +22,20 @@ public static class KooperationseinrichtungEndpoints
         .WithOpenApi();
 
         // GET /api/v1/kooperationseinrichtung - List
-        endpoints.MapGet("/kooperationseinrichtung", async (ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/kooperationseinrichtung", async (ApplicationDbContext db) =>
         {
             var kooperationseinrichtung = await db.Kooperationseinrichtungen.ToListAsync();
-            return mapper.Map<List<KooperationseinrichtungDto>>(kooperationseinrichtung);
+            return kooperationseinrichtung.MapToKooperationseinritungDtos();
         })
         .AllowAnonymous()
         .WithName("KooperationseinrichtungList")
         .WithOpenApi();
 
         // GET /api/v1/kooperationseinrichtung/{id} - Retrieve
-        endpoints.MapGet("/kooperationseinrichtung/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/kooperationseinrichtung/{id:guid}", async (Guid id, ApplicationDbContext db) =>
         {
             var kooperationseinrichtung = await db.Kooperationseinrichtungen.FindAsync(id);
-            return kooperationseinrichtung != null ? Results.Ok(mapper.Map<KooperationseinrichtungDto>(kooperationseinrichtung)) : Results.NotFound();
+            return kooperationseinrichtung != null ? Results.Ok(kooperationseinrichtung.MapToKooperationseinrichtungDto()) : Results.NotFound();
         })
         .AllowAnonymous()
         .WithName("KooperationseinrichtungRetrieve")

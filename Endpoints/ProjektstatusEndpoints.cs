@@ -10,7 +10,7 @@ public static class ProjektstatusEndpoints
         // GET /api/v1/projektstatus - List
         endpoints.MapGet("/projektstatus", () =>
         {
-            var states = Enum.GetValues<Projektstatus>()
+            var states = Enum.GetValues<ProjektStatus>()
                 .Select(status => status.MapToProjektstatusDto())
                 .ToList();
             return Results.Ok(states);
@@ -22,10 +22,10 @@ public static class ProjektstatusEndpoints
         // GET /api/v1/projektstatus/{id} - Retrieve
         endpoints.MapGet("/projektstatus/{id:int}", (int id) =>
             {
-                if (!Enum.IsDefined(typeof(Projektstatus), id))
+                if (!Enum.IsDefined(typeof(ProjektStatus), id))
                     return Results.NotFound("Projektstatus nicht gefunden");
 
-                var status = (Projektstatus)id;
+                var status = (ProjektStatus)id;
                 return Results.Ok(status.MapToProjektstatusDto());
             })
             .AllowAnonymous()

@@ -1,7 +1,7 @@
 namespace ZUMI_Backend.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 
-public enum Projektstatus
+public enum ProjektStatus
 {
     /// <summary>
     /// Projekt ist geplant, aber noch nicht gestartet.

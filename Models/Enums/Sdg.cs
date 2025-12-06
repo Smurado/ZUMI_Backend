@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace ZUMI_Backend.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 public enum Sdg

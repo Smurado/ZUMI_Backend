@@ -25,7 +25,7 @@ public static class ProjektEndpoints
                 var newProject = new Project
                 {
                     Id = Guid.NewGuid(),
-                    Projektstatus = Projektstatus.InVorbereitung  // Default-Status
+                    ProjektStatus = ProjektStatus.InVorbereitung  // Default-Status
                 };
 
                 // Essentials mappen
@@ -54,49 +54,184 @@ public static class ProjektEndpoints
             .WithOpenApi();
         
         endpoints.MapPut("/projekte/{id:guid}/update", async (Guid id, UpdateProjectDto dto, ApplicationDbContext db, HttpContext http) =>
+        {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim)) return Results.Unauthorized();
+
+            var userId = Guid.Parse(userIdClaim);
+
+            // 1. Berechtigungsprüfung -> User muss Owner vom Projekt sein
+            var isOwner = await db.ProjektPersons
+                .AnyAsync(pp => pp.ProjektId == id && pp.PersonId == userId && pp.IsOwner);
+            if (!isOwner) return Results.Forbid();
+
+            // 2. Laden inkl. Todos (Wichtig für Update/Delete)
+            var existingProject = await db.Projekte
+                .Include(p => p.Todos)
+                .Include(k => k.Kooperationseinrichtungen)
+                .Include(m => m.Materialien)
+                .Include(b => b.Erklaerbilder)
+                .FirstOrDefaultAsync(p => p.Id == id);
+                
+            if (existingProject == null) return Results.NotFound();
+            
+            if (existingProject.Todos == null) existingProject.Todos = new List<Todo>();
+            
+            // 3. Basis-Projektinfos updaten (Titel, Beschreibung etc.)
+            existingProject.ApplyUpdateFromDto(dto);
+
+            // 4. Todos Logik
+            if (dto.Todos != null)
             {
-                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                    return Results.Unauthorized();
-
-                var userId = Guid.Parse(userIdClaim);
-
-                // Prüfe, ob User Owner ist
-                var isOwner = await db.ProjektPersons
-                    .AnyAsync(pp => pp.ProjektId == id && pp.PersonId == userId && pp.IsOwner);
-                if (!isOwner) return Results.Forbid();
-
-                var existing = await db.Projekte
-                    .FirstOrDefaultAsync(p => p.Id == id);  // Besser als FindAsync für Includes
-                if (existing == null) return Results.NotFound();
-                
-                // Speichere Snapshot vor Update (für Vergleich)
-                var hasChangesBefore = db.ChangeTracker.HasChanges();
-                
-                // Update anwenden – EF trackt Änderungen automatisch
-                existing.ApplyUpdateFromDto(dto);
-                
-                // Prüfe, ob Änderungen vorgenommen wurden
-                var hasChangesAfter = db.ChangeTracker.HasChanges();
-                var changesMade = hasChangesAfter && !hasChangesBefore;
-
-                if (!changesMade)
+                foreach (var todoDto in dto.Todos)
                 {
-                    // Keine Änderungen: Bestehendes Projekt zurückgeben
-                    var currentDto = existing.MapToProjectDto();
-                    return Results.Ok(new { Message = "Keine Änderungen vorgenommen.", Project = currentDto });
+                    // FALL A: Löschen gewünscht?
+                    if (todoDto.Delete)
+                    {
+                        // Nur versuchen zu löschen, wenn wir eine ID haben
+                        if (todoDto.Id.HasValue)
+                        {
+                            // Wir suchen in der geladenen Liste des Projekts
+                            var toDelete = existingProject.Todos
+                                .FirstOrDefault(t => t.Id == todoDto.Id.Value);
+
+                            if (toDelete != null)
+                            {
+                                // EF Core merkt das als "Delete" beim SaveChanges
+                                existingProject.Todos.Remove(toDelete);
+                            }
+                        }
+                        // Wenn Delete=true, sind wir mit diesem Item fertig -> weiter zum nächsten
+                        continue; 
+                    }
+
+                    // FALL B: Neu anlegen (Keine ID oder Empty Guid)
+                    if (!todoDto.Id.HasValue || todoDto.Id.Value == Guid.Empty)
+                    {
+                        var newTodo = new Todo
+                        {
+                            // ID wird im Konstruktor oder hier generiert
+                            Id = Guid.NewGuid(), 
+                            Titel = todoDto.Titel,
+                            Status = todoDto.Status, // Enum (0, 1, 2)
+                            Beschreibung = todoDto.Beschreibung,
+                            ProjectId = existingProject.Id,
+                            //Project = existingProject,
+                        }; 
+
+                        // we have to add it to the db first -> will get added to the correct project via id.
+                        db.Todos.Add(newTodo);
+                    }
+                    // FALL C: Update existierendes
+                    else
+                    {
+                        var existingTodo = existingProject.Todos
+                            .FirstOrDefault(t => t.Id == todoDto.Id.Value);
+
+                        if (existingTodo != null)
+                        {
+                            existingTodo.Titel = todoDto.Titel;
+                            existingTodo.Status = todoDto.Status;
+                            existingTodo.Beschreibung = todoDto.Beschreibung;
+                            // Delete Flag ist hier false, also bleibt es bestehen
+                        }
+                    }
                 }
+            }
+            
+            // 5. Kooperationseinrichtung Logik
+            if (dto.Kooperationseinrichtungen != null)
+            {
+                foreach (var kooperationseinrichtungDto in dto.Kooperationseinrichtungen)
+                {
+                    // FALL A: Neu anlegen (Keine ID oder Empty Guid)
+                    if (!kooperationseinrichtungDto.Id.HasValue || kooperationseinrichtungDto.Id.Value == Guid.Empty)
+                    {
+                        var newkooperationseinrichtung = new Kooperationseinrichtung
+                        {
+                            // ID wird im Konstruktor oder hier generiert
+                            Id = Guid.NewGuid(), 
+                            Webseite =  kooperationseinrichtungDto.Webseite,
+                            Name = kooperationseinrichtungDto.Name,
+                            Projekte = new List<Project>{existingProject},
+                            Telefonnummer =  kooperationseinrichtungDto.Telefonnummer,
+                            Email = kooperationseinrichtungDto.Email,
+                            SocialMedia =  kooperationseinrichtungDto.SocialMedia,
+                        }; 
 
-                await db.SaveChangesAsync();  // UPDATE nur für geänderte Felder + JSON für SdgValues
-                
-                // Änderungen gemacht: Updated Projekt zurückgeben
-                var updatedDto = existing.MapToProjectDto();
-                return Results.Ok(new { Message = "Projekt erfolgreich aktualisiert.", Project = updatedDto });
-            })
-            .RequireAuthorization()
-            .WithName("ProjektUpdate")
-            .WithOpenApi();
+                        // we have to add it to the db first -> will get added to the correct project via id.
+                        db.Kooperationseinrichtungen.Add(newkooperationseinrichtung);
+                    }
+                    // FALL B: Update existierendes Kooperationsstatus
+                    else
+                    {
+                        var existingKooperationseinrichtung = existingProject.Kooperationseinrichtungen
+                            .FirstOrDefault(t => t.Id == kooperationseinrichtungDto.Id.Value);
 
+                        if (existingKooperationseinrichtung != null)
+                        {
+                            existingKooperationseinrichtung.Name = kooperationseinrichtungDto.Name;
+                            existingKooperationseinrichtung.Email = kooperationseinrichtungDto.Email;
+                            existingKooperationseinrichtung.Webseite = kooperationseinrichtungDto.Webseite;
+                            existingKooperationseinrichtung.SocialMedia = kooperationseinrichtungDto.SocialMedia;
+                            existingKooperationseinrichtung.Telefonnummer = kooperationseinrichtungDto.Telefonnummer;
+                        }
+                    }
+                }
+            }
+
+            if (dto.Materialien != null)
+            {
+                foreach (var materialDto in dto.Materialien)
+                {
+                    // FALL A: Löschen
+                    if (materialDto.Delete)
+                    {
+                        if (materialDto.Id.HasValue)
+                        {
+                            var toDelete = existingProject.Materialien
+                                .FirstOrDefault(m => m.Id == materialDto.Id.Value);
+                            
+                            if (toDelete != null) existingProject.Materialien.Remove(toDelete);  // EF löscht Junction auto
+                        }
+                    }
+                        
+                    // FALL B: Neu anlegen
+                    if (!materialDto.Id.HasValue || materialDto.Id.Value == Guid.Empty)
+                    {
+                        var newMaterial = new Material
+                        {
+                            Id = Guid.NewGuid(),
+                            Name = materialDto.Name,
+                            Beschreibung = materialDto.Beschreibung,
+                            Vorhanden = materialDto.Vorhanden,
+                            Projekt = existingProject
+                        };
+
+                        db.Materialien.Add(newMaterial);
+                        //existingProject.Materialien.Add(newMaterial); 
+                    }
+                    // FALL C: Update
+                    else
+                    {
+                        var existingMaterial = existingProject.Materialien
+                            .FirstOrDefault(m => m.Id == materialDto.Id.Value);
+
+                        if (existingMaterial != null)
+                        {
+                            existingMaterial.Name = materialDto.Name ?? existingMaterial.Name;
+                            existingMaterial.Beschreibung = materialDto.Beschreibung ?? existingMaterial.Beschreibung;
+                            existingMaterial.Vorhanden = materialDto.Vorhanden;
+                        }
+                    }
+                }
+            }
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(existingProject.MapToProjectDto());
+        });
+        
         // GET /api/v1/projekte - Alle Projekte (als DTOs)
         endpoints.MapGet("/projekte", async (ApplicationDbContext db) =>
         {
@@ -118,7 +253,6 @@ public static class ProjektEndpoints
         {
             var projekt = await db.Projekte
                 .Include(p => p.Personen).ThenInclude(pp => pp.Person)                    
-                .Include(p => p.Sdgs)
                 .Include(p => p.Kooperationseinrichtungen)
                 .Include(p => p.Materialien)
                 .Include(p => p.Todos)
@@ -131,7 +265,6 @@ public static class ProjektEndpoints
             
             return Results.Ok(projectDto);
         })
-        .RequireAuthorization()
         .WithName("ProjektRetrieve")
         .WithOpenApi();
         
@@ -177,7 +310,7 @@ public static class ProjektEndpoints
         {
             var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
             var projekt = await db.Projekte
-                .Include(p => p.Personen)
+                .Include(p => p.Personen) .ThenInclude(pp => pp.Person)
                 .FirstOrDefaultAsync(p => p.Id == id);
             
             // Check if relationship already exists
@@ -225,7 +358,7 @@ public static class ProjektEndpoints
 
                 var projekte = await db.Projekte
                     .Where(p => p.SdgValues.Contains(sdg_id))  // Filter auf List<int> in JSON-Spalte
-                    .Include(p => p.Projektstatus)  // Für Status-Info
+                    .Include(p => p.ProjektStatus)  // Für Status-Info
                     .Include(p => p.Personen).ThenInclude(pp => pp.Person)  // Für Personen (via Through-Entity)
                     .Include(p => p.Kooperationseinrichtungen)  // Für Kooperationen
                     .Include(p => p.Materialien)  // Für Materialien
@@ -304,43 +437,113 @@ public static class ProjektEndpoints
         // -> Nur: ProjektId, Kurztitel, Titelbild, SDG-Values (keine Category, da keine Beteiligung)
         // Limit auf 20 aktive Projekte für Performance (erweiterbar mit Query-Params)
         endpoints.MapGet("/projekte/discovery", async (ApplicationDbContext db, HttpContext http) =>
+        {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            
+            // get userId if user is logged in
+            var userId = userIdClaim != null ? Guid.Parse(userIdClaim) : (Guid?)null;
+            
+            IQueryable<Project> query = db.Projekte
+                .AsNoTracking()
+                .Where(p => p.ProjektStatus != ProjektStatus.Archiviert);
+            
+            // Hole beteiligte Projekt-IDs (für Exclusion)
+            if (userId.HasValue)
             {
-                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                {
-                    return Results.Unauthorized();
-                }
-
-                var userId = Guid.Parse(userIdClaim);
-
-                // Hole beteiligte Projekt-IDs (für Exclusion)
                 var beteiligteProjektIds = await db.ProjektPersons
                     .AsNoTracking()
                     .Where(pp => pp.PersonId == userId &&
                                  (pp.IsOwner || pp.IsLiked || pp.IsParticipating))
                     .Select(pp => pp.ProjektId)
                     .ToListAsync();
+                
+                query = query.Where(p => !beteiligteProjektIds.Contains(p.Id));
+            }
+            
+            // Filter nach query
+            var projekte = await query
+                .OrderBy(p => p.LetztesUpdate)  // Neueste zuerst (optional)
+                .Take(20)  // Limit für Discovery (erweiterbar mit ?limit=50)
+                .Select(p => new ProjektStartItemDto  // Projiziere direkt zu DTO (effizient)
+                {
+                    ProjektId = p.Id,
+                    Kurztitel = p.Kurztitel,
+                    Titelbild = p.Titelbild,
+                    SdgIds = p.SdgValues,  // List<int> als SDG-Values
+                    Category = -1  // Keine Beteiligung (Fallback)
+                })
+                .ToListAsync();
 
-                var projekte = await db.Projekte
-                    .AsNoTracking()
-                    .Where(p => !beteiligteProjektIds.Contains(p.Id) &&  // Exclusion: Keine eigenen Projekte
-                                p.Projektstatus != Projektstatus.Archiviert)  // Nur aktive (optional: passe Filter an)
-                    .OrderBy(p => p.LetztesUpdate)  // Neueste zuerst (optional)
-                    .Take(20)  // Limit für Discovery (erweiterbar mit ?limit=50)
-                    .Select(p => new ProjektStartItemDto  // Projiziere direkt zu DTO (effizient)
+            return Results.Ok(projekte);
+        })
+        .WithName("ProjektDiscovery")
+        .WithOpenApi();
+
+        endpoints.MapPut("projekte/{id:guid}/personen/update", async (Guid id, UpdatePersonRolesDto dto,  ApplicationDbContext db, HttpContext http) =>
+        {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim)) return Results.Unauthorized();
+            
+            var userId = Guid.Parse(userIdClaim);
+
+            // 1. Berechtigungsprüfung -> User muss Owner vom Projekt sein
+            var isOwner = await db.ProjektPersons
+                .AnyAsync(pp => pp.ProjektId == id && pp.PersonId == userId && pp.IsOwner);
+            if (!isOwner) return Results.Forbid();
+            
+            var existingProject = await db.Projekte
+                .Include(p => p.Personen)  // List<ProjektPerson>
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (existingProject == null) return Results.NotFound();
+
+            if (dto.Personen != null)
+            {
+                foreach (var personUpdate in dto.Personen)
+                {
+                    // FALL A: Vollständig aus Projekt entfernen
+                    if (personUpdate.RemoveFromProject)
                     {
-                        ProjektId = p.Id,
-                        Kurztitel = p.Kurztitel,
-                        Titelbild = p.Titelbild,
-                        SdgIds = p.SdgValues,  // List<int> als SDG-Values
-                        Category = -1  // Keine Beteiligung (Fallback)
-                    })
-                    .ToListAsync();
+                        var toRemove = existingProject.Personen
+                            .FirstOrDefault(pp => pp.PersonId == personUpdate.PersonId);
+                        if (toRemove != null)
+                        {
+                            existingProject.Personen.Remove(toRemove);  // EF trackt als Deleted
+                        }
+                        continue;
+                    }
+                    // FALL B: Owner-Rechte setzen (true = machen, false = wegnehmen)
+                    var projektPerson = existingProject.Personen
+                        .FirstOrDefault(pp => pp.PersonId == personUpdate.PersonId);
 
-                return Results.Ok(projekte);
-            })
-            .RequireAuthorization()
-            .WithName("ProjektDiscovery")
-            .WithOpenApi();
+                    if (projektPerson == null)
+                    {
+                        // Wenn Person nicht im Projekt: Neu hinzufügen mit IsOwner
+                        projektPerson = new ProjektPerson
+                        {
+                            ProjektId = id,
+                            PersonId = personUpdate.PersonId,
+                            IsOwner = personUpdate.IsOwner,
+                            IsLiked = false,  // Default
+                            IsParticipating = true  // Annahme: Bei Add participating
+                        };
+                        existingProject.Personen.Add(projektPerson);  // Neu hinzufügen
+                    }
+                    else
+                    {
+                        // Bestehend: IsOwner updaten (andere Flags unverändert)
+                        projektPerson.IsOwner = personUpdate.IsOwner;
+                    }
+                }
+            }
+            // 5. Speichern
+            await db.SaveChangesAsync();
+
+            // 6. Response: Updated Project mit Personen
+            return Results.Ok(existingProject.MapToProjectDto());
+            
+        }).RequireAuthorization()
+        .WithName("ProjectPersonUpdate")
+        .WithOpenApi();
     }
 }

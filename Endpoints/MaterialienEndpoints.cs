@@ -2,7 +2,7 @@
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
-using AutoMapper;
+using ZUMI_Backend.Models.Maps;
 
 namespace ZUMI_Backend.Endpoints;
 
@@ -21,21 +21,22 @@ public static class MaterialienEndpoints
         .WithName("MaterialCreate")
         .WithOpenApi();
 
-        // GET /api/v1/material - List
-        endpoints.MapGet("/material", async (ApplicationDbContext db, IMapper mapper) =>
+        // GET /api/v1/{id}/material - List
+        // TODO brauchen wir nicht weil alles über das Projekt gemacht werden soll.
+        /*endpoints.MapGet("/material", async (Guid id, ApplicationDbContext db) =>
         {
             var materialien = await db.Materialien.ToListAsync();
             return mapper.Map<List<MaterialDto>>(materialien);
         })
         .AllowAnonymous()
         .WithName("MaterialList")
-        .WithOpenApi();
+        .WithOpenApi();*/
 
         // GET /api/v1/material/{id} - Retrieve
-        endpoints.MapGet("/material/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/material/{id:guid}", async (Guid id, ApplicationDbContext db) =>
         {
             var material = await db.Materialien.FindAsync(id);
-            return material != null ? Results.Ok(mapper.Map<MaterialDto>(material)) : Results.NotFound();
+            return material != null ? Results.Ok(material.MapToMaterialDto()) : Results.NotFound();
         })
         .AllowAnonymous()
         .WithName("MaterialRetrieve")
@@ -46,7 +47,8 @@ public static class MaterialienEndpoints
         {
             var existing = await db.Materialien.FindAsync(id);
             if (existing == null) return Results.NotFound();
-            // Update Properties hier ergänzen
+            
+            var updatedMaterial = db.Materialien.Update(updated);
             await db.SaveChangesAsync();
             return Results.NoContent();
         })

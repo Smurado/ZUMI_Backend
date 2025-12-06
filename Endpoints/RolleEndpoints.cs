@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿/*using Microsoft.EntityFrameworkCore;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
@@ -22,7 +22,7 @@ public static class RolleEndpoints
         .WithOpenApi();
 
         // GET /api/v1/rolle - List
-        endpoints.MapGet("/rolle", async (ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/rolle", async (ApplicationDbContext db) =>
         {
             var rollen =  await db.Rollen.ToListAsync();
             return mapper.Map<List<RolleDto>>(rollen);
@@ -32,7 +32,7 @@ public static class RolleEndpoints
         .WithOpenApi();
 
         // GET /api/v1/rolle/{id} - Retrieve
-        endpoints.MapGet("/rolle/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/rolle/{id:guid}", async (Guid id, ApplicationDbContext db) =>
         {
             var rolle = await db.Rollen.FindAsync(id);
             return rolle != null ? Results.Ok(mapper.Map<RolleDto>(rolle)) : Results.NotFound();
@@ -66,4 +66,4 @@ public static class RolleEndpoints
         .WithName("RolleDelete")
         .WithOpenApi();
     }
-}
+}*/

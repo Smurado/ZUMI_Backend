@@ -2,7 +2,9 @@
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
-using AutoMapper;
+using ZUMI_Backend.Extensions;
+using ZUMI_Backend.Models.Enums;
+using ZUMI_Backend.Models.Maps;
 
 namespace ZUMI_Backend.Endpoints;
 
@@ -11,7 +13,7 @@ public static class TodoEndpoints
     public static void MapTodoEndpoints(this IEndpointRouteBuilder endpoints)
     {
         // POST /api/v1/todos/create
-        endpoints.MapPost("/todos/create", async (Todo newTodo, ApplicationDbContext db) =>
+        endpoints.MapPost("/todos/create", async (ApplicationDbContext db, Todo newTodo) =>
         {
             db.Todos.Add(newTodo);
             await db.SaveChangesAsync();
@@ -22,10 +24,11 @@ public static class TodoEndpoints
         .WithOpenApi();
 
         // GET /api/v1/todos/{id}
-        endpoints.MapGet("/todos/{id:guid}", async (Guid id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/todos/{id:guid}", async (Guid id, ApplicationDbContext db) =>
         {
             var todo = await db.Todos.FindAsync(id);
-            return todo != null ? Results.Ok(mapper.Map<TodoDto>(todo)) : Results.NotFound();
+            
+            return todo != null ? Results.Ok(todo.MapToTodoDto()) : Results.NotFound();
         })
         .RequireAuthorization()
         .WithName("TodoRetrieve")
@@ -58,13 +61,37 @@ public static class TodoEndpoints
         .WithOpenApi();
 
         // GET /api/v1/projekte/{projekt_id}/todos - Todos für Projekt
-        endpoints.MapGet("/projekte/{projekt_id:guid}/todos", async (Guid projekt_id, ApplicationDbContext db, IMapper mapper) =>
+        endpoints.MapGet("/projekte/{projekt_id:guid}/todos", async (Guid projekt_id, ApplicationDbContext db) =>
         {
-            var todos = await db.Todos.Where(t => t.projectid == projekt_id).ToListAsync();
-            return mapper.Map<List<TodoDto>>(todos);
+            var todos = await db.Todos.Where(t => t.ProjectId == projekt_id).ToListAsync();
+            return todos.MapToTodoDtos();
         })
         .RequireAuthorization()
         .WithName("ProjektTodosList")
+        .WithOpenApi();
+        
+        // Get /api/v1/todostatus - List
+        endpoints.MapGet("/todostatus", () =>
+        {
+            var states = Enum.GetValues<TodoStatus>()
+                .Select(status => status.MapToTodoStatusDto())
+                .ToList();
+            return Results.Ok(states);
+        })
+        .AllowAnonymous()
+        .WithName("TodoStatusList")
+        .WithOpenApi();
+        
+        endpoints.MapGet("/todostatus/{id:int}", (int id) =>
+        {
+            if(!Enum.IsDefined(typeof(TodoStatus), id))
+                return Results.NotFound("TodoStatus nicht gefunden");
+            
+            var status = (TodoStatus)id;
+            return Results.Ok(status.MapToTodoStatusDto());
+        })
+        .AllowAnonymous()
+        .WithName("TodoStatusRetrieve")
         .WithOpenApi();
     }
 }

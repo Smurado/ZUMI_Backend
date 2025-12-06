@@ -24,7 +24,7 @@
         // → Vollständige Objekte (keine IDs mehr!)
         public ProjektstatusDto Projektstatus { get; set; } = null!;
 
-        public List<PersonDto> Personen { get; set; } = new();
+        public List<PersonRoleDto> Personen { get; set; } = new();
         public List<SdgDto> Sdgs { get; set; } = new();
         public List<KooperationseinrichtungDto> Kooperationseinrichtungen { get; set; } = new();
         public List<MaterialDto> Materialien { get; set; } = new();

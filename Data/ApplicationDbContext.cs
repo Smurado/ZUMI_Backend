@@ -8,10 +8,7 @@ namespace ZUMI_Backend.Data
     public class ApplicationDbContext : DbContext
     {
         public DbSet<Project> Projekte { get; set; }
-        //public DbSet<Projektstatus> Projektstatuses { get; set; }
         public DbSet<Rolle> Rollen { get; set; }
-        //public DbSet<SustainableDevelopmentGoal> SustainableDevelopmentGoals { get; set; }
-        //public DbSet<Altersgruppe> Altersgruppen { get; set; }
         public DbSet<Person> Persons { get; set; }
         public DbSet<Beitrag> Beitraege { get; set; }
         public DbSet<Kooperationseinrichtung> Kooperationseinrichtungen { get; set; }
@@ -49,25 +46,26 @@ namespace ZUMI_Backend.Data
                         (c1, c2) => c1.SequenceEqual(c2),
                         c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
                         c => c.ToList()));
-            
-            /*modelBuilder.Entity<Project>()
-                .HasMany(p => p.Sdgs)
-                .WithMany(s => s.Projekte)
-                .UsingEntity(j => j.ToTable("ProjektSDG"));*/
-            
+
             modelBuilder.Entity<Project>()
-                .HasMany(p => p.Todos);
+                .HasMany(p => p.Todos)
+                .WithOne(t => t.Project);
+            
+            modelBuilder.Entity<Todo>()
+                .HasOne(t => t.Project)
+                .WithMany(p => p.Todos)
+                .HasForeignKey(t => t.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);  // Optional: Auto-löschen von Todos bei Project-Delete
             
             // Projekt <-> Kooperationseinrichtung (through ProjektKooperationseinrichtung)
             modelBuilder.Entity<Project>()
                 .HasMany(p => p.Kooperationseinrichtungen)
                 .WithMany(k => k.Projekte)
                 .UsingEntity(j => j.ToTable("ProjektKooperationseinrichtung"));
-            
+
             modelBuilder.Entity<Project>()
-                .HasMany(p =>p.Materialien)
-                .WithMany(m => m.Projekte)
-                .UsingEntity(j => j.ToTable("ProjektMaterialien"));
+                .HasMany(p => p.Materialien)
+                .WithOne(m => m.Projekt);
             
             // Konfiguriere die Junction-Entity (ersetzt alte UsingEntity)
             modelBuilder.Entity<ProjektPerson>()

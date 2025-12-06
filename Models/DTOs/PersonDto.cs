@@ -12,6 +12,8 @@
         
         public Altersgruppe Altersgruppe { get; set; }
         
-        public List<Guid> ProjekteIds { get; set; } = new List<Guid>();
+        //public List<Guid> ProjekteIds { get; set; } = new List<Guid>();
+
+        public List<ProjectRoleDto> Projekte { get; set; } = new();
     }
 }

@@ -3,12 +3,14 @@
 services:
   app:
     build: .
-    ports:
-      - "8000:8080"  
-      - "8443:443"  
+    #ports:
+    #  - "8000:8080"  
+    #  - "8443:443"  
     environment:
       - ASPNETCORE_ENVIRONMENT=Release
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydatabase;Port=5432;Username=myuser;Password=mypassword;Include Error Detail=true
+      # ASP.NET Core lauscht standardmäßig auf 8000 im Container
+      - ASPNETCORE_URLS=http://+:8000
     depends_on:
       postgres:
         condition: service_healthy  # Warte auf healthy DB
@@ -30,7 +32,7 @@ services:
     networks:
       - app-network
     restart: unless-stopped
-    healthcheck:  # Neu: Check, ob DB ready
+    healthcheck:  # Check, ob DB ready
       test: ["CMD-SHELL", "pg_isready -U myuser -d mydatabase"]
       interval: 10s
       timeout: 5s
@@ -39,14 +41,29 @@ services:
   nginx:
     image: nginx:latest
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro  # Deine Config-Datei
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # WICHTIG: Hier binden wir deine bestehenden Zertifikate vom HOST ein
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Für zukünftige Erneuerungen (Webroot Challenge)
+      - ./certbot/www:/var/www/certbot
     ports:
       - "80:80"  # Nur HTTP – öffentlich auf 80 (kein 443)
+      - "443:443"
     depends_on:
       - app
     networks:
       - app-network
     restart: always
+      
+  # NEU: Der Certbot Container
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      # Auch Certbot muss Zugriff auf den echten Ordner haben, um zu erneuern
+      - /etc/letsencrypt:/etc/letsencrypt
+    # Dieser Befehl prüft alle 12h, ob ein Zertifikat erneuert werden muss
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
   
 volumes:
   postgres_data:

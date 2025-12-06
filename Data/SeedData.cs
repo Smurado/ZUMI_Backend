@@ -38,7 +38,7 @@ namespace ZUMI_Backend.Data
                     Adresse = "TestAdresse",
                     Vorbereitungszeitraum = "1 Monat",
                     Umsetzungszeitraum = "3 Monate",
-                    Projektstatus = Projektstatus.InVorbereitung,
+                    ProjektStatus = ProjektStatus.InVorbereitung,
                     Titelbild = "test.jpg",
                     Kooperationseinrichtungen = new List<Kooperationseinrichtung>
                     {

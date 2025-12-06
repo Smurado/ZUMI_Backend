@@ -126,7 +126,6 @@ public static class BildEndpoints
 
             return Results.File(fileBytes, contentType, enableRangeProcessing: true);  // Range-Support für Partial-Requests
         })
-        .RequireAuthorization()
         .WithName("ImageServe")
         .WithOpenApi();
 

@@ -37,7 +37,13 @@ public class UpdateProjectDto
 
     public string? Finance { get; set; }
 
-    public Projektstatus? Projektstatus { get; set; } // Enum für Status-Update
+    public ProjektStatus? Projektstatus { get; set; } // Enum für Status-Update
 
     public List<int>? SdgValues { get; set; }
+    
+    public List<TodoUpdateDto> Todos { get; set; }
+    
+    public List<KooperationseinrichtungUpdateDto> Kooperationseinrichtungen { get; set; }
+    
+    public List<MaterialUpdateDto> Materialien { get; set; }
 }

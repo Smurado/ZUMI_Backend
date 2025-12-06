@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ZUMI_Backend.Models
 {
@@ -15,6 +16,9 @@ namespace ZUMI_Backend.Models
 
         public bool Vorhanden { get; set; } = false;
 
-        public virtual ICollection<Project> Projekte { get; set; } = new List<Project>();  // Many-to-Many through ProjektMaterialien
+        public Guid ProjektId { get; set; }
+        
+        [ForeignKey(nameof(ProjektId))]
+        public virtual Project Projekt { get; set; }
     }
 }

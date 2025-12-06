@@ -8,5 +8,5 @@ public record CreateFeedbackDto(
     string Subject,
     string Message,
     int? Rating = null,                 // optional
-    Guid? RecipientId = null            // TODO optional – falls Feedback an bestimmte Person gerichtet
+    Guid? RecipientId = null            //
 );

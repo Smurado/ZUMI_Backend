@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using ZUMI_Backend.Models.Enums;
 
 namespace ZUMI_Backend.Models
 {
@@ -12,12 +13,12 @@ namespace ZUMI_Backend.Models
         public string Titel { get; set; }
 
         public string Beschreibung { get; set; }
+        
+        public TodoStatus Status { get; set; } = 0;  // Choices: offen, in_bearbeitung, abgeschlossen
 
-        [MaxLength(20)]
-        public string Status { get; set; } = "offen";  // Choices: offen, in_bearbeitung, abgeschlossen
-
-        public Guid projectid { get; set; }
-        [ForeignKey(nameof(projectid))]
+        public Guid ProjectId { get; set; }
+        
+        [ForeignKey(nameof(ProjectId))]
         public virtual Project Project { get; set; }
     }
 }

@@ -49,7 +49,7 @@ namespace ZUMI_Backend.Models
         
         public string SpendenLink { get; set; }
         
-        public virtual Projektstatus Projektstatus { get; set; }
+        public virtual ProjektStatus ProjektStatus { get; set; }
 
         // Many-to-Many
         public virtual ICollection<ProjektPerson> Personen { get; set; } = new List<ProjektPerson>();  // Through ProjektPerson

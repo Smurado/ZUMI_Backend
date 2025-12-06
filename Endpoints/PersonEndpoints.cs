@@ -3,7 +3,7 @@ using System.Security.Claims;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Models;
 using ZUMI_Backend.Models.DTOs;
-using AutoMapper;
+using ZUMI_Backend.Models.Maps;
 
 namespace ZUMI_Backend.Endpoints;
 
@@ -44,8 +44,8 @@ public static class PersonEndpoints
             .WithName("UpdatePerson")
             .WithOpenApi();
         
-        // GET /api/v1/whoami - Alle Personen listen
-        endpoints.MapGet("/whoami", async (ApplicationDbContext db, IMapper mapper, HttpContext http) => 
+        // GET /api/v1/whoami - Alle Dinge zu meiner Person ausgeben
+        endpoints.MapGet("/whoami", async (ApplicationDbContext db, HttpContext http) => 
             {
             
             var userId = Guid.Parse(http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "");
@@ -57,8 +57,8 @@ public static class PersonEndpoints
                 .FirstOrDefaultAsync(p => p.Id == userId);
             
             if (person == null) return Results.NotFound("Person not found");
-            
-            var personDto = mapper.Map<PersonDto>(person);
+
+            var personDto = person.MapToPersonDto();
             return Results.Ok(personDto);
         })
         .RequireAuthorization()
