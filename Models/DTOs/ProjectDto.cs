@@ -29,6 +29,6 @@
         public List<KooperationseinrichtungDto> Kooperationseinrichtungen { get; set; } = new();
         public List<MaterialDto> Materialien { get; set; } = new();
         public List<TodoDto> Todos { get; set; } = new();
-        public List<ErklaerbildDto> Erklaerbilder { get; set; } = new();
+        public List<MedienDto> Medien { get; set; } = new();
     }
 }

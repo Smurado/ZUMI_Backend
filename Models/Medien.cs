@@ -1,0 +1,22 @@
+namespace ZUMI_Backend.Models;
+
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Enums;
+
+public class Medien
+{
+    [Key]
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public Guid ProjektId { get; set; }
+    
+    [ForeignKey(nameof(ProjektId))]
+    public virtual Project Project { get; set; }
+    
+    public MediaType MediaType { get; set; }
+
+    public string Url { get; set; } = null!; // URL/Path zu ImageField
+
+    public MediaStatus Status { get; set; } = MediaStatus.Pending;
+}

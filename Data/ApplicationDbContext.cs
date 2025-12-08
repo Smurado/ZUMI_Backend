@@ -15,7 +15,7 @@ namespace ZUMI_Backend.Data
         public DbSet<Todo> Todos { get; set; }
         
         public DbSet<ProjektPerson> ProjektPersons { get; set; }
-        public DbSet<Erklaerbild> Erklaerbilder { get; set; }
+        public DbSet<Medien> Medien { get; set; }
         
         public DbSet<Material> Materialien { get; set; }
         

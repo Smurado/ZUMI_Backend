@@ -42,7 +42,7 @@ services:
     image: nginx:latest
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      # WICHTIG: Hier binden wir deine bestehenden Zertifikate vom HOST ein
+      # WICHTIG: Hier binden wir das bestehende Zertifikat vom HOST ein
       - /etc/letsencrypt:/etc/letsencrypt:ro
       # Für zukünftige Erneuerungen (Webroot Challenge)
       - ./certbot/www:/var/www/certbot

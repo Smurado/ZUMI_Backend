@@ -64,7 +64,7 @@ public static class DomainToDtoMapper
             
             Todos = project.Todos?.Select(t => t.MapToTodoDto()).ToList() ?? new List<TodoDto>(),
             
-            Erklaerbilder = project.Erklaerbilder?.Select(e => e.MapToErklaerbildDto()).ToList() ?? new List<ErklaerbildDto>()
+            Medien = project.Medien?.Select(e => e.MapToMedienDto()).ToList() ?? new List<MedienDto>()
         };
     
     public static AltersgruppeDto MapToAltersgruppeDto(this Altersgruppe ag)
@@ -78,24 +78,41 @@ public static class DomainToDtoMapper
         };
     }
     
-    public static ErklaerbildDto MapToErklaerbildDto(this Erklaerbild bild)
+    public static MedienDto MapToMedienDto(this Medien medium)
     {
-        if (bild == null) return null;
-        return new ErklaerbildDto
+        if (medium == null) return null;
+        return new MedienDto
         {
-            Id = bild.Id,
-            Url = bild.Url,  // Dein Modell hat "url" (klein) – passe zu "Url" an, falls nötig
-            ProjektId = bild.ProjektId
+            Id = medium.Id,
+            Url = medium.Url,
+            ProjektId = medium.ProjektId,
+            Status =  medium.Status,
+            MediaType =  medium.MediaType,
+            
         };
     }
 
 // Für Listen (z. B. in ProjectDto)
-    public static List<ErklaerbildDto> MapToErklaerbildDtos(this IEnumerable<Erklaerbild> bilder)
+    public static List<MedienDto> MapToMedienDtos(this IEnumerable<Medien> bilder)
     {
-        return bilder?.Select(b => b.MapToErklaerbildDto())
+        return bilder?.Select(b => b.MapToMedienDto())
             .Where(dto => dto != null)
-            .ToList() ?? new List<ErklaerbildDto>();
+            .ToList() ?? new List<MedienDto>();
     }
+    
+    public static MediaTypeDto MapToMediaTypeDto(this MediaType type)
+        => type == null ? null : new MediaTypeDto  // Annahme: MediaTypeDto existiert oder erstelle es
+        {
+            Id = (int)type,
+            Name = type.GetDisplayName()  // z.B. "Video"
+        };
+
+    public static MediaStatusDto MapToMediaStatusDto(this MediaStatus status)
+        => status == null ? null : new MediaStatusDto
+        {
+            Id = (int)status,
+            Name = status.GetDisplayName()  // z.B. "Completed"
+        };
     
     public static void ApplyCreateFromDto(this Project project, CreateProjectDto dto)
     {
@@ -222,7 +239,11 @@ public static class DomainToDtoMapper
     => k == null ? null : new KooperationseinrichtungDto
     {
         Id = k.Id, 
-        Name = k.Name
+        Name = k.Name,
+        Email = k.Email,
+        SocialMedia =  k.SocialMedia,
+        Telefonnummer = k.Telefonnummer,
+        Website = k.Webseite
     };
 
     public static List<KooperationseinrichtungDto> MapToKooperationseinritungDtos(
@@ -239,6 +260,7 @@ public static class DomainToDtoMapper
         Id = todo.Id, 
         Title = todo.Titel,
         ProjectId = todo.ProjectId,
+        Beschreibung = todo.Beschreibung,
         Status = todo.Status
     };
 

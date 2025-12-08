@@ -46,7 +46,7 @@ public static class ProjektEndpoints
                 await db.SaveChangesAsync();
 
                 // Return DTO (manuell mappen oder via Extension)
-                var resultDto = newProject.MapToProjectDto();  // Dein manueller Mapper
+                var resultDto = newProject.MapToProjectDto(); 
                 return Results.Created($"/api/v1/projekte/{newProject.Id}", resultDto);
             })
             .RequireAuthorization()
@@ -70,7 +70,7 @@ public static class ProjektEndpoints
                 .Include(p => p.Todos)
                 .Include(k => k.Kooperationseinrichtungen)
                 .Include(m => m.Materialien)
-                .Include(b => b.Erklaerbilder)
+                .Include(b => b.Medien)
                 .FirstOrDefaultAsync(p => p.Id == id);
                 
             if (existingProject == null) return Results.NotFound();
@@ -256,7 +256,7 @@ public static class ProjektEndpoints
                 .Include(p => p.Kooperationseinrichtungen)
                 .Include(p => p.Materialien)
                 .Include(p => p.Todos)
-                .Include(p => p.Erklaerbilder)
+                .Include(p => p.Medien)
                 .FirstOrDefaultAsync(p => p.Id == id);
             
             if (projekt == null) return Results.NotFound();
@@ -363,7 +363,7 @@ public static class ProjektEndpoints
                     .Include(p => p.Kooperationseinrichtungen)  // Für Kooperationen
                     .Include(p => p.Materialien)  // Für Materialien
                     .Include(p => p.Todos)  // Für Todos (falls im DTO)
-                    .Include(p => p.Erklaerbilder)  // Für Erklärbilder (falls im DTO)
+                    .Include(p => p.Medien)  // Für Erklärbilder (falls im DTO)
                     .ToListAsync();
 
                 return Results.Ok(projekte.MapToProjectDtos());  // Manueller Mapper (aus früherem Chat)

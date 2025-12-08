@@ -32,6 +32,11 @@
       <_ContentIncludedByDefault Remove="out\ZUMI_Backend.deps.json" />
       <_ContentIncludedByDefault Remove="out\ZUMI_Backend.runtimeconfig.json" />
       <_ContentIncludedByDefault Remove="out\ZUMI_Backend.staticwebassets.endpoints.json" />
+      <_ContentIncludedByDefault Remove="VideoConverter\appsettings.Development.json" />
+      <_ContentIncludedByDefault Remove="VideoConverter\appsettings.json" />
+      <_ContentIncludedByDefault Remove="VideoConverter\obj\project.assets.json" />
+      <_ContentIncludedByDefault Remove="VideoConverter\obj\VideoConverter.csproj.nuget.dgspec.json" />
+      <_ContentIncludedByDefault Remove="VideoConverter\Properties\launchSettings.json" />
     </ItemGroup>
 
 </Project>

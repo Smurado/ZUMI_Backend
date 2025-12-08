@@ -65,6 +65,6 @@ namespace ZUMI_Backend.Models
         public virtual ICollection<Kooperationseinrichtung> Kooperationseinrichtungen{ get; set; } = new List<Kooperationseinrichtung>();  // Through ProjektKooperationseinrichtung
         public virtual ICollection<Material> Materialien { get; set; } = new List<Material>();  // Through ProjektMaterialien
         public virtual ICollection<Todo> Todos { get; set; } = new List<Todo>();
-        public virtual ICollection<Erklaerbild> Erklaerbilder { get; set; } = new List<Erklaerbild>();
+        public virtual ICollection<Medien> Medien { get; set; } = new List<Medien>();
     }
 }

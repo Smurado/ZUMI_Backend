@@ -4,11 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Data;
 using Models;
+using Models.Enums;
 using Models.Maps;
 
-public static class BildEndpoints
+public static class MedienEndpoints
 {
     private static readonly string UploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads");
+    private static readonly string VideoOutputPath = Path.Combine(Directory.GetCurrentDirectory(), "output", "videos");
 
     public static void MapBildEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -59,15 +61,15 @@ public static class BildEndpoints
                 }
 
                 // In DB speichern
-                var neuesBild = new Erklaerbild
+                var neuesBild = new Medien
                 {
                     ProjektId = id,
                     Url = relativeUrl
                 };
-                db.Erklaerbilder.Add(neuesBild);
+                db.Medien.Add(neuesBild);
                 await db.SaveChangesAsync();
 
-                var resultDto = neuesBild.MapToErklaerbildDto();
+                var resultDto = neuesBild.MapToMedienDto();
                 return Results.Created($"/api/v1/projekte/{id}/erklaerbilder/{neuesBild.Id}", resultDto);
             }
             catch (Exception ex)
@@ -85,11 +87,11 @@ public static class BildEndpoints
         // GET /api/v1/projekte/{id:guid}/erklaerbilder - Liste aller Erklärbilder (Public)
         endpoints.MapGet("/projekte/{id:guid}/erklaerbilder", async (Guid id, ApplicationDbContext db) =>
         {
-            var bilder = await db.Erklaerbilder
+            var bilder = await db.Medien
                 .Where(e => e.ProjektId == id)
                 .ToListAsync();
 
-            var dtos = bilder.MapToErklaerbildDtos();
+            var dtos = bilder.MapToMedienDtos();
             return Results.Ok(dtos);
         })
         .AllowAnonymous()
@@ -106,7 +108,7 @@ public static class BildEndpoints
             var userId = Guid.Parse(userIdClaim);
 
             // Lade Bild und prüfe Ownership (via ProjektPerson)
-            var bild = await db.Erklaerbilder
+            var bild = await db.Medien
                 .Include(e => e.Project)  // Für Owner-Check
                 .ThenInclude(p => p.Personen)  // Personen via Through
                 .FirstOrDefaultAsync(e => e.Id == bildId);
@@ -141,14 +143,14 @@ public static class BildEndpoints
             var isOwner = await db.ProjektPersons.AnyAsync(pp => pp.ProjektId == id && pp.PersonId == userId && pp.IsOwner);
             if (!isOwner) return Results.Forbid();
 
-            var bild = await db.Erklaerbilder.FindAsync(bildId);
+            var bild = await db.Medien.FindAsync(bildId);
             if (bild == null || bild.ProjektId != id) return Results.NotFound();
 
             // Datei löschen
             var filePath = Path.Combine(UploadPath, bild.Url.TrimStart('/'));
             if (File.Exists(filePath)) File.Delete(filePath);
 
-            db.Erklaerbilder.Remove(bild);
+            db.Medien.Remove(bild);
             await db.SaveChangesAsync();
 
             return Results.NoContent();
@@ -187,7 +189,7 @@ public static class BildEndpoints
         }
 
         // Relative URL zurückgeben (z. B. "/uploads/projekte/{id}/{fileName}")
-        var relativeUrl = $"/uploads{basePath.Replace(Directory.GetCurrentDirectory(), "").Replace("\\", "/").Replace("//", "/")}";  // Passe an deinen UploadPath an
+        var relativeUrl = $"/uploads{basePath.Replace(Directory.GetCurrentDirectory(), "").Replace("\\", "/").Replace("//", "/")}";
         relativeUrl = Path.Combine(relativeUrl, fileName).Replace("\\", "/");
 
         return relativeUrl;
