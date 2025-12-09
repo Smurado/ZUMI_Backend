@@ -7,11 +7,26 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development  # Hier auf Development stellen für bessere Fehleranzeige
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydatabase;Port=5432;Username=myuser;Password=mypassword;Include Error Detail=true
       - ASPNETCORE_URLS=http://+:8000
+      - ConverterSettings__Url=http://converter:8080
+    volumes:
+      - ./uploads:/app/wwwroot/uploads
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - app-network
+    
+  converter:
+    build:
+      context: .
+      dockerfile: ZUMI_Converter/Dockerfile
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    volumes:
+      - ./uploads:/app/wwwroot/uploads
+    networks:
+      - app-network
+    restart: always
 
   postgres:
     image: postgres:16
@@ -43,8 +58,6 @@ services:
       - app
     networks:
       - app-network
-
-  # Certbot lassen wir hier KOMPLETT weg, brauchen wir lokal nicht.
 
 volumes:
   postgres_data_local:

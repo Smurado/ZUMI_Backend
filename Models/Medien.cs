@@ -14,9 +14,11 @@ public class Medien
     [ForeignKey(nameof(ProjektId))]
     public virtual Project Project { get; set; }
     
+    public string Url { get; set; } = null!; // URL/Path zu ImageField
+    
     public MediaType MediaType { get; set; }
 
-    public string Url { get; set; } = null!; // URL/Path zu ImageField
-
     public MediaStatus Status { get; set; } = MediaStatus.Pending;
+    
+    public string? OriginalFileName { get; set; }
 }

@@ -88,7 +88,7 @@ public static class DomainToDtoMapper
             ProjektId = medium.ProjektId,
             Status =  medium.Status,
             MediaType =  medium.MediaType,
-            
+            OriginalFileName = medium.OriginalFileName,
         };
     }
 

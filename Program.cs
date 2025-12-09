@@ -4,9 +4,24 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using ZUMI_Backend.Data;
 using ZUMI_Backend.Endpoints;
+using ZUMI_Backend.Endpoints.InternalEndpoints;
 using ZUMI_Backend.Models;
+using Microsoft.AspNetCore.Http.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Kestrel Server Limit erhöhen (Server-Level Limit)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // 1 GB Limit (in Bytes: 1024 * 1024 * 1024 = 1073741824)
+    options.Limits.MaxRequestBodySize = 1073741824; 
+});
+
+// 2. Formular Limit erhöhen (für IFormFile Verarbeitung in ASP.NET)
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 1073741824; // 1 GB
+});
 
 // JSON-Options konfigurieren
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
@@ -43,6 +58,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddHttpClient();
 
 // Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
@@ -116,6 +133,7 @@ api.MapSdgEndpoints();
 api.MapTodoEndpoints();
 api.MapBildEndpoints();
 api.MapApiRootEndpoints();
+api.MapInternalEndpoints();
 api.MapFeedbackEndpoints();
 api.MapAltersgruppeEndpoints();
 

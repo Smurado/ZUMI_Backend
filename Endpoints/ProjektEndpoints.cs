@@ -372,13 +372,46 @@ public static class ProjektEndpoints
             .WithName("ProjektFilteredBySDG")
             .WithOpenApi();
         
-        // DELETE /api/v1/projekte/{id}/delete - Projekt löschen
-        endpoints.MapDelete("/projekte/{id:guid}/delete", async (Guid id, ApplicationDbContext db) =>
+        // DELETE /api/v1/projekte/{id}/delete - Projekt komplett löschen (inkl. Dateien)
+        endpoints.MapDelete("/projekte/{id:guid}/delete", async (Guid id, ApplicationDbContext db, HttpContext http) =>
         {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim)) return Results.Unauthorized();
+            var userId = Guid.Parse(userIdClaim);
+
+            // 1. Owner-Check (Sicherheit: Nur der Besitzer darf löschen!)
+            var isOwner = await db.ProjektPersons
+                .AnyAsync(pp => pp.ProjektId == id && pp.PersonId == userId && pp.IsOwner);
+            
+            if (!isOwner) return Results.Forbid();
+
             var projekt = await db.Projekte.FindAsync(id);
             if (projekt == null) return Results.NotFound();
+
+            // 2. Physische Dateien löschen
+            // Wir löschen einfach den ganzen Ordner: /uploads/projekte/{GUID}
+            try 
+            {
+                var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads");
+                var projektDir = Path.Combine(uploadPath, "projekte", id.ToString());
+
+                if (Directory.Exists(projektDir))
+                {
+                    Directory.Delete(projektDir, recursive: true); // true = Alles darin auch löschen
+                    Console.WriteLine($"[Delete] Projekt-Ordner entfernt: {projektDir}");
+                }
+            }
+            catch(Exception ex)
+            {
+                // Fehler loggen, aber weitermachen, damit das Projekt zumindest aus der DB verschwindet
+                Console.WriteLine($"[Error] Konnte Dateien nicht löschen: {ex.Message}");
+            }
+
+            // 3. Aus Datenbank entfernen
+            // Dank EF Core Cascade Delete werden (meistens) auch alle zugehörigen Todos, Medien & ProjektPersons gelöscht
             db.Projekte.Remove(projekt);
             await db.SaveChangesAsync();
+
             return Results.NoContent();
         })
         .RequireAuthorization()

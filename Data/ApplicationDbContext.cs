@@ -34,7 +34,7 @@ namespace ZUMI_Backend.Data
             modelBuilder.Entity<Project>().ToTable("projects");
             //modelBuilder.Entity<Projektstatus>().ToTable("projectstate");
             modelBuilder.Entity<Kooperationseinrichtung>().ToTable("Kooperationseinrichtungen");
-            modelBuilder.Entity<Material>().ToTable("Materialien");
+            
 
             modelBuilder.Entity<Project>()
                 .Property(p => p.SdgValues)
@@ -57,6 +57,12 @@ namespace ZUMI_Backend.Data
                 .HasForeignKey(t => t.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);  // Optional: Auto-löschen von Todos bei Project-Delete
             
+            modelBuilder.Entity<Material>().ToTable("Materialien")
+                .HasOne(m => m.Projekt)
+                .WithMany(p => p.Materialien)
+                .HasForeignKey(m => m.ProjektId)
+                .OnDelete(DeleteBehavior.Cascade);
+            
             // Projekt <-> Kooperationseinrichtung (through ProjektKooperationseinrichtung)
             modelBuilder.Entity<Project>()
                 .HasMany(p => p.Kooperationseinrichtungen)
@@ -65,7 +71,8 @@ namespace ZUMI_Backend.Data
 
             modelBuilder.Entity<Project>()
                 .HasMany(p => p.Materialien)
-                .WithOne(m => m.Projekt);
+                .WithOne(m => m.Projekt)
+                .OnDelete(DeleteBehavior.Cascade);
             
             // Konfiguriere die Junction-Entity (ersetzt alte UsingEntity)
             modelBuilder.Entity<ProjektPerson>()

@@ -11,5 +11,5 @@ public class MedienDto
     
     public MediaStatus Status { get; set; }
     
-    
+    public string OriginalFileName { get; set; }
 }
