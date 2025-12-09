@@ -14,7 +14,6 @@ public static class DomainToDtoMapper
             Id = project.Id,
             Kurztitel = project.Kurztitel,
             Kurzbeschreibung = project.Kurzbeschreibung,
-            Titelbild = project.Titelbild,
             Beschreibung = project.Beschreibung,
             Vorbereitungszeitraum = project.Vorbereitungszeitraum,
             Umsetzungszeitraum = project.Umsetzungszeitraum,
@@ -28,6 +27,7 @@ public static class DomainToDtoMapper
             SpentBudget = project.SpentBudget,
             SpendenLink = project.SpendenLink,
             Finance = project.Finance,
+            TitelbildId = project.Medien.FirstOrDefault(m => m.IsCoverPicture )?.Id,
             
             // Status
             Projektstatus = ((ProjektStatus)project.ProjektStatus).MapToProjektstatusDto(),
@@ -89,6 +89,7 @@ public static class DomainToDtoMapper
             Status =  medium.Status,
             MediaType =  medium.MediaType,
             OriginalFileName = medium.OriginalFileName,
+            IsCoverPicture =  medium.IsCoverPicture,
         };
     }
 
@@ -120,7 +121,6 @@ public static class DomainToDtoMapper
 
         project.Kurztitel = dto.Kurztitel;
         project.Kurzbeschreibung = dto.Kurzbeschreibung;
-        project.Titelbild = dto.Titelbild ?? string.Empty;
         project.Beschreibung = dto.Beschreibung;
         project.Vorbereitungszeitraum = dto.Vorbereitungszeitraum;
         project.Umsetzungszeitraum = dto.Umsetzungszeitraum;
@@ -147,7 +147,6 @@ public static class DomainToDtoMapper
         // Basis-Felder updaten
         project.Kurztitel = dto.Kurztitel ?? project.Kurztitel;
         project.Kurzbeschreibung = dto.Kurzbeschreibung ?? project.Kurzbeschreibung;
-        project.Titelbild = dto.Titelbild ?? project.Titelbild;
         project.Beschreibung = dto.Beschreibung ?? project.Beschreibung;
         project.Vorbereitungszeitraum = dto.Vorbereitungszeitraum ?? project.Vorbereitungszeitraum;
         project.Umsetzungszeitraum = dto.Umsetzungszeitraum ?? project.Umsetzungszeitraum;

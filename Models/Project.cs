@@ -15,8 +15,6 @@ namespace ZUMI_Backend.Models
         
         public string? Kurzbeschreibung { get; set; }
 
-        public string? Titelbild { get; set; }  // URL/Path zu ImageField
-
         [Required]
         public string Beschreibung { get; set; }
         

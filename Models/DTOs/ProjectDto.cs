@@ -6,7 +6,6 @@
 
         public string Kurztitel { get; set; } = null!;
         public string? Kurzbeschreibung { get; set; }
-        public string? Titelbild { get; set; } = null!;
         public string? Beschreibung { get; set; } = null!;
         public string? Vorbereitungszeitraum { get; set; } = null!;
         public string? Umsetzungszeitraum { get; set; } = null!;
@@ -30,5 +29,7 @@
         public List<MaterialDto> Materialien { get; set; } = new();
         public List<TodoDto> Todos { get; set; } = new();
         public List<MedienDto> Medien { get; set; } = new();
+        
+        public Guid? TitelbildId { get; set; }
     }
 }

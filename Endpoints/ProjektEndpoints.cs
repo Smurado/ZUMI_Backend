@@ -14,44 +14,44 @@ public static class ProjektEndpoints
     {
         // POST /api/v1/projekte - Projekt erstellen
         endpoints.MapPost("/projekte/create", async (CreateProjectDto dto, ApplicationDbContext db, HttpContext http) =>
+        {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim))
+                return Results.Unauthorized();
+
+            var userId = Guid.Parse(userIdClaim);
+
+            // Neues Project erstellen
+            var newProject = new Project
             {
-                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                    return Results.Unauthorized();
+                Id = Guid.NewGuid(),
+                ProjektStatus = ProjektStatus.InVorbereitung  // Default-Status
+            };
 
-                var userId = Guid.Parse(userIdClaim);
+            // Essentials mappen
+            newProject.ApplyCreateFromDto(dto);
 
-                // Neues Project erstellen
-                var newProject = new Project
-                {
-                    Id = Guid.NewGuid(),
-                    ProjektStatus = ProjektStatus.InVorbereitung  // Default-Status
-                };
+            db.Projekte.Add(newProject);
 
-                // Essentials mappen
-                newProject.ApplyCreateFromDto(dto);
+            // Owner hinzufügen (via Through-Entity)
+            db.ProjektPersons.Add(new ProjektPerson
+            {
+                ProjektId = newProject.Id,
+                PersonId = userId,
+                IsOwner = true,
+                IsLiked = false,
+                IsParticipating = false  // Defaults; passe an, falls nötig
+            });
 
-                db.Projekte.Add(newProject);
+            await db.SaveChangesAsync();
 
-                // Owner hinzufügen (via Through-Entity)
-                db.ProjektPersons.Add(new ProjektPerson
-                {
-                    ProjektId = newProject.Id,
-                    PersonId = userId,
-                    IsOwner = true,
-                    IsLiked = false,
-                    IsParticipating = false  // Defaults; passe an, falls nötig
-                });
-
-                await db.SaveChangesAsync();
-
-                // Return DTO (manuell mappen oder via Extension)
-                var resultDto = newProject.MapToProjectDto(); 
-                return Results.Created($"/api/v1/projekte/{newProject.Id}", resultDto);
-            })
-            .RequireAuthorization()
-            .WithName("ProjektCreate")
-            .WithOpenApi();
+            // Return DTO (manuell mappen oder via Extension)
+            var resultDto = newProject.MapToProjectDto(); 
+            return Results.Created($"/api/v1/projekte/{newProject.Id}", resultDto);
+        })
+        .RequireAuthorization()
+        .WithName("ProjektCreate")
+        .WithOpenApi();
         
         endpoints.MapPut("/projekte/{id:guid}/update", async (Guid id, UpdateProjectDto dto, ApplicationDbContext db, HttpContext http) =>
         {
@@ -76,6 +76,28 @@ public static class ProjektEndpoints
             if (existingProject == null) return Results.NotFound();
             
             if (existingProject.Todos == null) existingProject.Todos = new List<Todo>();
+            
+            // Wenn das Frontend eine ID mitschickt (und sie nicht leer ist)
+            if (dto.TitelBildId.HasValue && dto.TitelBildId.Value != Guid.Empty)
+            {
+                // A) Aufräumen: Allen aktuellen Bildern den Status "Titelbild" entziehen
+                foreach (var medium in existingProject.Medien)
+                {
+                    if (medium.IsCoverPicture)
+                    {
+                        medium.IsCoverPicture = false;
+                    }
+                }
+
+                // B) Neu setzen: Das gewünschte Bild suchen und markieren
+                var neuesTitelbild = existingProject.Medien
+                    .FirstOrDefault(m => m.Id == dto.TitelBildId.Value);
+
+                if (neuesTitelbild != null)
+                {
+                    neuesTitelbild.IsCoverPicture = true;
+                }
+            }
             
             // 3. Basis-Projektinfos updaten (Titel, Beschreibung etc.)
             existingProject.ApplyUpdateFromDto(dto);
@@ -157,6 +179,7 @@ public static class ProjektEndpoints
                             Telefonnummer =  kooperationseinrichtungDto.Telefonnummer,
                             Email = kooperationseinrichtungDto.Email,
                             SocialMedia =  kooperationseinrichtungDto.SocialMedia,
+                            Firma =  kooperationseinrichtungDto.Firma,
                         }; 
 
                         // we have to add it to the db first -> will get added to the correct project via id.
@@ -175,6 +198,7 @@ public static class ProjektEndpoints
                             existingKooperationseinrichtung.Webseite = kooperationseinrichtungDto.Webseite;
                             existingKooperationseinrichtung.SocialMedia = kooperationseinrichtungDto.SocialMedia;
                             existingKooperationseinrichtung.Telefonnummer = kooperationseinrichtungDto.Telefonnummer;
+                            existingKooperationseinrichtung.Firma = kooperationseinrichtungDto.Firma;
                         }
                     }
                 }
@@ -454,7 +478,6 @@ public static class ProjektEndpoints
             {
                 ProjektId = pp.ProjektId,
                 Kurztitel = pp.Project.Kurztitel,
-                Titelbild = pp.Project.Titelbild,
                 SdgIds = pp.Project.SdgValues,
                 Category = GetCategory(pp)
             }).ToList();
@@ -501,7 +524,6 @@ public static class ProjektEndpoints
                 {
                     ProjektId = p.Id,
                     Kurztitel = p.Kurztitel,
-                    Titelbild = p.Titelbild,
                     SdgIds = p.SdgValues,  // List<int> als SDG-Values
                     Category = -1  // Keine Beteiligung (Fallback)
                 })

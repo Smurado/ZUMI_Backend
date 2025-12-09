@@ -10,6 +10,8 @@ namespace ZUMI_Backend.Models
         [Required]
         [MaxLength(255)]
         public string Name { get; set; }
+        
+        public string Firma { get; set; }
 
         [MaxLength(255)]
         public string Webseite { get; set; }

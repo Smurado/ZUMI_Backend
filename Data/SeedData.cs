@@ -39,7 +39,6 @@ namespace ZUMI_Backend.Data
                     Vorbereitungszeitraum = "1 Monat",
                     Umsetzungszeitraum = "3 Monate",
                     ProjektStatus = ProjektStatus.InVorbereitung,
-                    Titelbild = "test.jpg",
                     Kooperationseinrichtungen = new List<Kooperationseinrichtung>
                     {
                         new()

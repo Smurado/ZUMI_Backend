@@ -46,4 +46,6 @@ public class UpdateProjectDto
     public List<KooperationseinrichtungUpdateDto> Kooperationseinrichtungen { get; set; }
     
     public List<MaterialUpdateDto> Materialien { get; set; }
+    
+    public Guid? TitelBildId { get; set; }
 }

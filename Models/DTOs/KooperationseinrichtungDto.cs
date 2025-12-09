@@ -13,4 +13,7 @@ public class KooperationseinrichtungDto
     public string Website { get; set; }
     
     public string Name { get; set; }
+
+    public string Firma { get; set; }
+    
 }

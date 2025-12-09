@@ -19,6 +19,8 @@ public class Medien
     public MediaType MediaType { get; set; }
 
     public MediaStatus Status { get; set; } = MediaStatus.Pending;
+
+    public bool IsCoverPicture { get; set; } = false;
     
     public string? OriginalFileName { get; set; }
 }
