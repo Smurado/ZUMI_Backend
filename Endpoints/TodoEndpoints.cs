@@ -79,8 +79,7 @@ public static class TodoEndpoints
             return Results.Ok(states);
         })
         .AllowAnonymous()
-        .WithName("TodoStatusList")
-        .WithOpenApi();
+        .WithName("TodoStatusList");
         
         endpoints.MapGet("/todostatus/{id:int}", (int id) =>
         {

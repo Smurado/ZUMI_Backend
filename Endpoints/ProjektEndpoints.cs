@@ -479,7 +479,12 @@ public static class ProjektEndpoints
                 ProjektId = pp.ProjektId,
                 Kurztitel = pp.Project.Kurztitel,
                 SdgIds = pp.Project.SdgValues,
-                Category = GetCategory(pp)
+                Category = GetCategory(pp),
+                
+                TitelBildId = pp.Project.Medien.Where(m => m.IsCoverPicture).FirstOrDefault() == null || !pp.Project.Medien.Any()
+                    ? null 
+                    : pp.Project.Medien.Where(m => m.IsCoverPicture).FirstOrDefault()!.Id
+                
             }).ToList();
 
             return Results.Ok(items);
@@ -525,7 +530,12 @@ public static class ProjektEndpoints
                     ProjektId = p.Id,
                     Kurztitel = p.Kurztitel,
                     SdgIds = p.SdgValues,  // List<int> als SDG-Values
-                    Category = -1  // Keine Beteiligung (Fallback)
+                    Category = -1,  // Keine Beteiligung (Fallback)
+                    
+                    TitelBildId = p.Medien.Where(m => m.IsCoverPicture).FirstOrDefault() == null || !p.Medien.Any()
+                        ? null 
+                        : p.Medien.Where(m => m.IsCoverPicture).FirstOrDefault()!.Id
+                        
                 })
                 .ToListAsync();
 

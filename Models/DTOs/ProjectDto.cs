@@ -30,6 +30,6 @@
         public List<TodoDto> Todos { get; set; } = new();
         public List<MedienDto> Medien { get; set; } = new();
         
-        public Guid? TitelbildId { get; set; }
+        public Guid? TitelBildId { get; set; }
     }
 }

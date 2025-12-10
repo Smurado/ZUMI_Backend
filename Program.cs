@@ -7,6 +7,9 @@ using ZUMI_Backend.Endpoints;
 using ZUMI_Backend.Endpoints.InternalEndpoints;
 using ZUMI_Backend.Models;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
+using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,20 +29,16 @@ builder.Services.Configure<FormOptions>(options =>
 // JSON-Options konfigurieren
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
 {
-    options.SerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.Preserve;
+    options.SerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    
     options.SerializerOptions.MaxDepth = 64;
 });
 
 // JWT-Konfiguration laden
-var jwtConfig = builder.Configuration.GetSection("JwtSettings").Get<JwtConfiguration>() ?? new JwtConfiguration();
+/*var jwtConfig = builder.Configuration.GetSection("JwtSettings").Get<JwtConfiguration>() ?? new JwtConfiguration();
 builder.Services.AddSingleton(jwtConfig);
 
-// DbContext registrieren
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    options.UseNpgsql(connectionString);
-});
+
 
 // JWT-Authentication hinzufügen
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -55,15 +54,78 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtConfig.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig.Secret))
         };
+    });*/
+
+// 1. Konfiguration laden
+// "JwtSettings" muss exakt so heißen wie in der appsettings.json
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+var jwtConfig = jwtSection.Get<JwtConfiguration>();
+builder.Services.AddSingleton(jwtConfig);
+
+// DbContext registrieren
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+ var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+ options.UseNpgsql(connectionString);
+});
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtConfig.Issuer,
+            ValidAudience = jwtConfig.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig.Secret))
+        };
     });
+
+// Den Service registrieren, falls du ihn woanders (z.B. im Login-Controller) brauchst
+
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+
+        document.Components.SecuritySchemes.Add("Bearer", new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "JWT Authorization header using the Bearer scheme."
+        });
+
+        document.Security = new List<OpenApiSecurityRequirement>
+        {
+            new()
+            {
+                {
+                    new OpenApiSecuritySchemeReference("Bearer"),
+                    new List<string>()
+                }
+            }
+        };
+        
+        // Host Document Reference fixen
+        document.SetReferenceHostDocument();
+        
+        return Task.CompletedTask;
+    });
+
+    // HINWEIS: Der fehlerhafte Block "options. = ..." wurde hier entfernt.
+    // Wenn du ReferenceHandler.Preserve global nutzt, werden auch deine
+    // OpenAPI Beispiele $id und $ref enthalten.
+});
 
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpClient();
-
-// Swagger/OpenAPI
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -84,6 +146,22 @@ builder.Services.AddAntiforgery(options =>
 
 var app = builder.Build();
 
+
+// 2. Erzeugt das OpenAPI JSON Dokument (z.B. unter /openapi/v1.json)
+app.MapOpenApi();
+
+// 3. Zeigt das schicke Scalar UI (statt SwaggerUI)
+app.MapScalarApiReference(options =>
+{
+    // Optional: Titel und Theme anpassen
+    options
+        .WithTitle("Meine coole API")
+        .WithTheme(ScalarTheme.BluePlanet)
+        .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+
+});
+
+
 app.UseHttpsRedirection();
     
 // Nur für andere StaticFiles, nicht uploads
@@ -102,9 +180,6 @@ app.UseAuthentication();
 app.UseAntiforgery(); // Fix: Ermöglicht CSRF-Token-Handling für Forms
 app.UseAuthorization();
 
-
-app.UseRouting();
-
 // Seed Data
 /*using (var scope = app.Services.CreateScope())
 {
@@ -115,8 +190,8 @@ app.UseRouting();
 // Dev-Features
 //if (app.Environment.IsDevelopment())
 //{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    //app.UseSwagger();
+    //app.UseSwaggerUI();
 //}
 
 // API-Gruppe

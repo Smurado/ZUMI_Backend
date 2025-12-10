@@ -13,5 +13,7 @@ namespace ZUMI_Backend.Models.DTOs
 
         // 0 = Owner, 1 = Liked, 2 = Participating
         public int Category { get; set; }
+        
+        public Guid? TitelBildId { get; set; }
     }
 }

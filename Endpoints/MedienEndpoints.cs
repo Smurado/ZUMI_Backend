@@ -180,8 +180,8 @@ public static class MedienEndpoints
         .WithName("ErklaerVideoCreate")
         .Accepts<MultipartFormDataContent>("multipart/form-data");        
         
-        // GET /api/v1/projekte/{id:guid}/erklaerbilder - Liste aller Erklärbilder (Public)
-        endpoints.MapGet("/projekte/{id:guid}/erklaerbilder", async (Guid id, ApplicationDbContext db) =>
+        // GET /api/v1/projekte/{id:guid}/bilder - Liste aller Bilder (Public)
+        endpoints.MapGet("/projekte/{id:guid}/bilder", async (Guid id, ApplicationDbContext db) =>
         {
             var bilder = await db.Medien
                 .Where(e => e.ProjektId == id)
@@ -195,7 +195,7 @@ public static class MedienEndpoints
         .WithOpenApi();
         
         // GET /api/v1/images/{bildId:guid} - Bild streamen (Auth required, Owner-Check)
-        endpoints.MapGet("/images/{bildId:guid}", async (Guid bildId, ApplicationDbContext db, HttpContext http) =>
+        endpoints.MapGet("/bilder/{bildId:guid}", async (Guid bildId, ApplicationDbContext db, HttpContext http) =>
         {
             var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdClaim))
@@ -226,6 +226,26 @@ public static class MedienEndpoints
         })
         .WithName("ImageServe")
         .WithOpenApi();
+
+        endpoints.MapGet("/medienstatus", () =>
+        {
+            var states = Enum.GetValues<MediaStatus>()
+                .Select(status => status.MapToMediaStatusDto())
+                .ToList();
+            return Results.Ok(states);
+        })
+        .AllowAnonymous()
+        .WithName("MedienStatusList");
+        
+        endpoints.MapGet("/medientype", () =>
+        {
+            var states = Enum.GetValues<MediaType>()
+                .Select(type => type.MapToMediaTypeDto())
+                .ToList();
+            return Results.Ok(states);
+        })
+        .AllowAnonymous()
+        .WithName("MedienTypeList");
         
         endpoints.MapGet("/videos/{videoId:guid}", async (Guid videoId, ApplicationDbContext db, HttpContext http) =>
         {

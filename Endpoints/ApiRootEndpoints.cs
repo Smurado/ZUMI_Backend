@@ -42,7 +42,7 @@ public static class ApiRootEndpoints
                 // Todos
                 
                 
-                // Erklaerbilder
+                // Bilder
                 
                 person_projekt = $"{req.Scheme}://{req.Host}/api/v1/person_projekt",
                 projektstatus = $"{req.Scheme}://{req.Host}/api/v1/projektstatus",

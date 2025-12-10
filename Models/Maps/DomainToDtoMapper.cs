@@ -27,7 +27,7 @@ public static class DomainToDtoMapper
             SpentBudget = project.SpentBudget,
             SpendenLink = project.SpendenLink,
             Finance = project.Finance,
-            TitelbildId = project.Medien.FirstOrDefault(m => m.IsCoverPicture )?.Id,
+            TitelBildId = project.Medien.FirstOrDefault(m => m.IsCoverPicture )?.Id,
             
             // Status
             Projektstatus = ((ProjektStatus)project.ProjektStatus).MapToProjektstatusDto(),
@@ -242,7 +242,7 @@ public static class DomainToDtoMapper
         Email = k.Email,
         SocialMedia =  k.SocialMedia,
         Telefonnummer = k.Telefonnummer,
-        Website = k.Webseite
+        Webseite = k.Webseite,
     };
 
     public static List<KooperationseinrichtungDto> MapToKooperationseinritungDtos(

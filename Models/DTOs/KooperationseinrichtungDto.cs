@@ -10,7 +10,7 @@ public class KooperationseinrichtungDto
     
     public string Telefonnummer { get; set; }
     
-    public string Website { get; set; }
+    public string Webseite { get; set; }
     
     public string Name { get; set; }
 
