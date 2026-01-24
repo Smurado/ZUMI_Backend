@@ -422,3 +422,6 @@ Temporary Items
 # appsettings
 appsettings.json
 appsettings.*.json  # Für alle Umgebungen wie Development, Production
+
+# Uploads Folder
+uploads/
