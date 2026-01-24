@@ -1,7 +1,6 @@
 namespace ZUMI_Converter
 {
     using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Hosting;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.DependencyInjection;
@@ -107,9 +106,12 @@ namespace ZUMI_Converter
                 }
                 else
                 {
-                    // Video Settings (AV1)
-                    // -cpu-used 4 ist guter Mix aus Speed/Größe
-                    arguments = $"-i \"{inputFile}\" -c:v libaom-av1 -crf 30 -cpu-used 6 -c:a aac -y \"{outputFile}\"";
+                    // Video Settings (SVT-AV1)
+                    // preset: 0 (langsam) bis 12 (ultraschnell). 
+                    // 6-8 ist ein guter Sweetspot für Qualität/Speed.
+                    // crf: 30 (Qualität), bei SVT oft etwas anders gewichtet, probier mal 30-35.
+    
+                    arguments = $"-i \"{inputFile}\" -c:v libsvtav1 -preset 3 -crf 44 -c:a aac -b:a 192k -y \"{outputFile}\"";
                     Console.WriteLine($"[FFmpeg] Starte Video-Konvertierung: {job.MediaId}");
                 }
 
@@ -124,7 +126,30 @@ namespace ZUMI_Converter
                 };
 
                 using var process = new Process { StartInfo = startInfo };
+                
+                // Event-Handler registrieren, um den Puffer zu leeren
+                // Das verhindert den Deadlock, weil die Daten sofort verarbeitet werden.
+                process.OutputDataReceived += (sender, args) => 
+                {
+                    if (args.Data != null) 
+                    {
+                        Console.WriteLine($"[FFmpeg Out] {args.Data}");
+                    }
+                };
+
+                process.ErrorDataReceived += (sender, args) => 
+                {
+                    if (args.Data != null)
+                    {
+                        // FFmpeg schreibt Logs und Fortschritt standardmäßig in Error!
+                        // Hier könnte man filtern oder nur bei Fehlern loggen.
+                        // Console.WriteLine($"[FFmpeg Log] {args.Data}");
+                    }
+                };
+                
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
                 
                 // Wir warten hier, bis FFmpeg fertig ist. 
                 // Da wir in einer Queue sind, blockiert das NICHT die API, sondern nur den nächsten Job.

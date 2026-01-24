@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build: ./ZUMI_Backend
     environment:
       - ASPNETCORE_ENVIRONMENT=Development  # Hier auf Development stellen für bessere Fehleranzeige
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=mydatabase;Port=5432;Username=myuser;Password=mypassword;Include Error Detail=true
@@ -51,7 +51,7 @@ services:
     image: nginx:latest
     volumes:
       # WICHTIG: Wir laden hier die LOCAL config
-      - ./nginx.local.conf:/etc/nginx/nginx.conf:ro
+      - ./ZUMI_Backend/nginx.local.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "80:80"
     depends_on:

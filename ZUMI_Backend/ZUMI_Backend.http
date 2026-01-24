@@ -1,0 +1,13 @@
+### POST Login to get JWT Token
+POST https://www.zumi.community/api/v1/auth/token/
+Content-Type: application/json
+
+{
+  "Email": "test@testung.de",
+  "Password": "test"
+}
+
+> {%
+    client.global.set("auth_token", response.body.access);
+    client.log("JWT Token gespeichert: " + client.global.get("auth_token"));
+%}

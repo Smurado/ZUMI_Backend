@@ -1,0 +1,88 @@
+### 1. Login
+# Authentifizierung, um den JWT-Token für die lokalen Requests zu erhalten.
+POST http://localhost/api/v1/auth/token/
+Content-Type: application/json
+
+{
+  "Email": "test@testung.de",
+  "Password": "test"
+}
+
+> {%
+    client.global.set("auth_token", response.body.access);
+    client.log("JWT Token gespeichert: " + client.global.get("auth_token"));
+%}
+
+### 2. Projekt erstellen
+# Erstellt ein Projekt und generiert automatisch die Standardrollen in 'ProjectRoles'.
+POST http://localhost/api/v1/projekte/create
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "Kurztitel": "Lokales Testprojekt",
+  "Kurzbeschreibung": "Test der Multi-Roles auf localhost.",
+  "Beschreibung": "Hier prüfen wir die neue Tabellenstruktur.",
+  "SdgValues": [],
+  "GesamtBudget": 1000,
+  "SpendenLink": "http://localhost/donate",
+  "Template": 2
+}
+
+> {%
+    client.global.set("projectId", response.body.id);
+    client.log("Projekt-ID gespeichert: " + client.global.get("projectId"));
+%}
+
+### 3. Projekt Details abrufen
+# WICHTIG: Hier siehst du die generierten 'roleIds' im Response.
+GET http://localhost/api/v1/projekte/{{projectId}}
+Authorization: Bearer {{auth_token}}
+
+### 4. Interaktion: Teilnahme & Erste Rolle
+# Fügt den User zur 'ProjektPersons' Tabelle hinzu und weist die Rolle 'Mitglied' zu.
+POST http://localhost/api/v1/projekte/{{projectId}}/interaktion
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "IsLiked": true,
+  "IsParticipating": true
+}
+
+### 5. Admin: Multi-Roles zuweisen
+# Synchronisiert die Rollen in der Tabelle 'ProjektPersonRoles'.
+# Nutze die IDs aus Request #3 für 'PersonId' und 'RoleIds'.
+PUT http://localhost/api/v1/projekte/{{projectId}}/personen/update
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "Personen": [
+    {
+      "PersonId": "a6be917c-a445-41ef-882a-7c12760d5a06",
+      "IsOwner": false,
+      "RemoveFromProject": false,
+      "RoleIds": [
+        "ID_ROLLE_1",
+        "ID_ROLLE_2"
+      ]
+    }
+  ]
+}
+
+### 6. Granulares Update (Rechte-Check)
+# Prüft 'EditDescription' und 'ManageBudget' Berechtigungen.
+PUT http://localhost/api/v1/projekte/71aa3b9e-536a-4a9d-812a-2523ede53dcf/update
+Authorization: Bearer {{auth_token}}
+Content-Type: application/json
+
+{
+  "Kurztitel": "Neuer ganz Toller Titel!",
+  "GesamtBudget": 2000
+}
+
+### 7. Discovery Feed
+# Prüft die neue 'Roles.Any()' Exclusion-Logik.
+GET http://localhost/api/v1/projekte/discovery
+Authorization: Bearer {{auth_token}}

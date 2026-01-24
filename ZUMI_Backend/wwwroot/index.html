@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zumi.community - Willkommen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Sanfte Einblende-Animation */
+        @keyframes softFade {
+            0% { opacity: 0; transform: scale(0.98) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-soft {
+            opacity: 0;
+            animation: softFade 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        body {
+            background: linear-gradient(135deg, #6B46C1 0%, #E53E3E 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        #cookie-banner.hidden { display: none; }
+    </style>
+</head>
+<body class="text-white">
+
+<main class="flex-grow flex items-center justify-center p-6 text-center">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-4xl md:text-6xl font-bold mb-4 animate-soft">
+            Willkommen bei Zumi.community
+        </h1>
+        <p class="text-base md:text-xl mb-8 animate-soft" style="animation-delay: 0.2s;">
+            Tritt unserer lebendigen Community bei, teile Ideen und entdecke spannende Inhalte.
+        </p>
+        <div class="animate-soft" style="animation-delay: 0.4s;">
+            <a href="/explore" class="inline-block bg-white text-purple-800 font-bold py-3 px-10 rounded-full shadow-lg hover:bg-purple-50 hover:scale-105 transition duration-300">
+                Jetzt Entdecken
+            </a>
+        </div>
+    </div>
+</main>
+
+<footer class="w-full bg-black/20 backdrop-blur-md p-6 animate-soft" style="animation-delay: 0.6s;">
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-sm">
+
+        <nav class="flex flex-wrap justify-center gap-x-8 gap-y-3 opacity-80 font-medium">
+            <a href="/datenschutz.html" class="hover:text-white transition underline-offset-4 hover:underline">Datenschutz</a>
+            <a href="/datenloeschen.html" class="hover:text-white transition underline-offset-4 hover:underline">Daten löschen</a>
+            <a href="/impressum.html" class="hover:text-white transition underline-offset-4 hover:underline">Impressum</a>
+        </nav>
+
+        <div class="w-full md:w-auto flex justify-center">
+            <a href="/datenschutz.pdf" download class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 px-5 py-2.5 rounded-xl transition text-xs font-bold uppercase tracking-widest">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Datenschutz PDF
+            </a>
+        </div>
+
+    </div>
+</footer>
+
+<div id="cookie-banner" class="hidden fixed bottom-6 left-6 right-6 md:left-auto md:right-6 md:max-w-sm bg-white text-gray-900 p-6 rounded-2xl shadow-2xl border border-gray-100 z-50">
+    <div class="flex items-center gap-2 mb-3">
+        <span class="text-2xl">🍪</span>
+        <h2 class="font-bold text-lg">Cookie-Hinweis</h2>
+    </div>
+    <p class="text-sm text-gray-600 mb-5 leading-relaxed">
+        Wir nutzen Cookies, um deine Erfahrung auf unserer Seite zu verbessern. Mehr Infos findest du in der <a href="/datenschutz.html" class="text-purple-600 font-medium hover:underline">Datenschutzerklärung</a>.
+    </p>
+    <div class="flex gap-3">
+        <button onclick="setCookiePreference('accepted')" class="flex-1 bg-purple-700 text-white font-bold py-2.5 px-4 rounded-xl hover:bg-purple-800 transition">
+            Erlauben
+        </button>
+        <button onclick="setCookiePreference('declined')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2.5 px-4 rounded-xl hover:bg-gray-200 transition text-sm">
+            Ablehnen
+        </button>
+    </div>
+</div>
+
+<script>
+    // Speichert die Entscheidung dauerhaft (Choice kann 'accepted' oder 'declined' sein)
+    function setCookiePreference(choice) {
+        localStorage.setItem('zumi_cookie_choice', choice);
+        hideBanner();
+    }
+
+    function hideBanner() {
+        const banner = document.getElementById('cookie-banner');
+        if (banner) {
+            banner.classList.add('hidden');
+        }
+    }
+
+    // Beim Laden prüfen, ob bereits eine Entscheidung getroffen wurde
+    window.onload = function() {
+        const userChoice = localStorage.getItem('zumi_cookie_choice');
+        if (!userChoice) {
+            document.getElementById('cookie-banner').classList.remove('hidden');
+        }
+    };
+</script>
+</body>
+</html>

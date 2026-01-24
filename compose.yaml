@@ -2,7 +2,7 @@
 
 services:
   app:
-    build: .
+    build: ./ZUMI_Backend
     #ports:
     #  - "8000:8080"  
     #  - "8443:443"  
@@ -56,11 +56,11 @@ services:
   nginx:
     image: nginx:latest
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ZUMI_Backend/nginx.conf:/etc/nginx/nginx.conf:ro
       # WICHTIG: Hier binden wir das bestehende Zertifikat vom HOST ein
       - /etc/letsencrypt:/etc/letsencrypt:ro
       # Für zukünftige Erneuerungen (Webroot Challenge)
-      - ./certbot/www:/var/www/certbot
+      - ./ZUMI_Backend/certbot/www:/var/www/certbot
     ports:
       - "80:80"  # Nur HTTP – öffentlich auf 80 (kein 443)
       - "443:443"
