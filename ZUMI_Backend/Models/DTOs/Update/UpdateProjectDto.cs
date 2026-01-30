@@ -49,7 +49,9 @@ public class UpdateProjectDto
     
     public Guid? TitelBildId { get; set; }
 
-    public List<ProjectRoleUpdateDto> Rollen { get; set; }
+    public List<UpdateProjectRoleDto> Rollen { get; set; }
     
     public List<PersonRoleDto> Personen { get; set; }
+    
+    public List<FundingItemDto> FundingItems { get; set; }
 }

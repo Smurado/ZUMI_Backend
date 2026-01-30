@@ -2,8 +2,8 @@ namespace ZUMI_Backend.Models.DTOs;
 
 public class FundingItemDto
 {
-    public Guid Id { get; set; }
-    public string Titel { get; set; } = string.Empty;
+    public Guid? Id { get; set; }
+    public string Title { get; set; } = string.Empty;
     public string Beschreibung { get; set; } = string.Empty;
     
     // Wir senden reine Zahlen, das Frontend formatiert dann (z.B. "300 €")
@@ -14,4 +14,9 @@ public class FundingItemDto
     public double ProzentErreicht => BenoetigterBetrag > 0 
         ? (double)(BereitsGesammelt / BenoetigterBetrag) 
         : 0;
+    
+    public Guid? ProjectId { get; set; }
+    public string? ProjectTitle { get; set; }
+
+    public bool Delete { get; set; } = false;
 }

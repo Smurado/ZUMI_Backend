@@ -54,16 +54,11 @@ public static class ProjectMapper
                 // Teilnahme: Wer Rollen hat (oder Owner ist), nimmt teil
                 IsParticipating = (pp.Roles != null && pp.Roles.Any()) || pp.IsOwner,
                 
-                Roles = pp.Roles.Select(r => new ProjectRoleDto
-                {
-                    Id = r.ProjectRole.Id,
-                    Name = r.ProjectRole.Name,
-                    Permissions = (int)r.ProjectRole.Permissions,
-                    IsSystemRole = r.ProjectRole.IsSystemRole
-                }).ToList(),
                 
-                //RoleNames = pp.Roles?.Select(r => r.ProjectRole.Name).ToList() ?? new List<string>(),
-
+                Roles = pp.Roles
+                    .Select(r => new RoleIdWrapper(r.ProjectRoleId))
+                    .ToList(),
+                
                 // Personendaten
                 FirstName = pp.Person?.FirstName ?? string.Empty,
                 LastName = pp.Person?.LastName ?? string.Empty,

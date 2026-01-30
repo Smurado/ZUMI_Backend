@@ -1,4 +1,5 @@
 namespace ZUMI_Backend.Models.DTOs;
+using System.Text.Json.Serialization;
 
 public class PersonRoleDto
 {
@@ -22,8 +23,11 @@ public class PersonRoleDto
     public string? Avatar { get; set; }
 
     // Liste der Rollen vom Benutzer..
-    public List<ProjectRoleDto> Roles { get; set; } = new List<ProjectRoleDto>();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<RoleIdWrapper> Roles { get; set; } = new List<RoleIdWrapper>();
     
     // Telete Person from Project
     public bool Delete { get; set; } = false;
 }
+// Ein winziger Wrapper für die ID
+public record RoleIdWrapper(Guid Id);

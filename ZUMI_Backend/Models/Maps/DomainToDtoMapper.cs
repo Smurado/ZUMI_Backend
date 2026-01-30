@@ -237,7 +237,7 @@ public static class DomainToDtoMapper
         return new FundingItemDto
         {
             Id = item.Id,
-            Titel = item.Titel,
+            Title = item.Titel,
             Beschreibung = item.Beschreibung,
             BenoetigterBetrag = item.BenoetigterBetrag,
             BereitsGesammelt = item.BereitsGesammelt

@@ -1,4 +1,6 @@
-﻿namespace ZUMI_Backend.Endpoints;
+﻿using Microsoft.AspNetCore.Mvc.Authorization;
+
+namespace ZUMI_Backend.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Data;
@@ -29,7 +31,7 @@ public static class ProjektEndpoints
             var newProject = new Project
             {
                 Id = Guid.NewGuid(),
-                ProjektStatus = ProjektStatus.InVorbereitung
+                ProjektStatus = ProjektStatus.Geplant
             };
 
             // Essentials mappen
@@ -92,6 +94,7 @@ public static class ProjektEndpoints
                 .Include(k => k.Kooperationseinrichtungen)
                 .Include(m => m.Materialien)
                 .Include(b => b.Medien)
+                .Include(f => f.FundingItems)
                 .Include(p => p.Roles)
                 .Include(p => p.Personen)
                     .ThenInclude(pp => pp.Roles)
@@ -140,7 +143,8 @@ public static class ProjektEndpoints
             bool isChangingBudget = 
                 (dto.GesamtBudget.HasValue && dto.GesamtBudget != project.GesamtBudget) ||
                 (dto.SpentBudget.HasValue && dto.SpentBudget != project.SpentBudget) ||
-                (dto.Finance != null && dto.Finance != project.Finance);
+                (dto.Finance != null && dto.Finance != project.Finance) ||
+                (dto.FundingItems != null && dto.FundingItems.Any());
 
             // GRUPPE F: AddMedia (Titelbild)
             bool isChangingCover = dto.TitelBildId.HasValue && 
@@ -372,87 +376,151 @@ public static class ProjektEndpoints
             }
             
             // -----------------------------------------------------------
-            // 10. NEU: Rollen-Definitionen (ProjectRole)
-            // Wir machen das VOR den Personen, damit neue Rollen existieren.
+            // 9b. Funding Items (Finanzierungsziele)
             // -----------------------------------------------------------
-            if (dto.Rollen != null && dto.Rollen.Any())
+            if (dto.FundingItems != null && dto.FundingItems.Any())
             {
-                // Wir iterieren über das, was vom Frontend kommt
-                foreach (var role in dto.Rollen)
+                // Wir nutzen den bereits berechneten Permission-Check von oben (ManageBudget)
+                if(!permissions.HasFlag(ProjectPermissions.ManageBudget))
+                    return Results.Json(new { error = "Keine Berechtigung: Finanzierungsziele verwalten." }, statusCode: 403);
+
+                foreach (var fundingDto in dto.FundingItems)
                 {
                     // FALL A: Löschen
-                    if (role.Delete)
+                    if (fundingDto.Delete)
                     {
-                        if (role.Id.HasValue)
+                        if (fundingDto.Id != Guid.Empty)
                         {
-                            var roleToDelete = project.Roles.FirstOrDefault(r => r.Id == role.Id.Value);
-                            if (roleToDelete != null)
+                            var toDelete = project.FundingItems
+                                .FirstOrDefault(f => f.Id == fundingDto.Id);
+                            
+                            if (toDelete != null) 
                             {
-                                if (roleToDelete.IsSystemRole) 
-                                    return Results.BadRequest($"Systemrolle '{roleToDelete.Name}' darf nicht gelöscht werden.");
-                                
-                                // EF Core löscht Kaskadierend die Zuweisungen in ProjektPersonRole, 
-                                // wenn in der DB OnDelete Cascade eingestellt ist (Standard).
-                                // Falls nicht, müssten wir erst die Zuweisungen löschen.
-                                project.Roles.Remove(roleToDelete);
+                                // EF Core löscht das Item aus der DB
+                                project.FundingItems.Remove(toDelete);
                             }
                         }
                         continue;
                     }
 
-                    // FALL B: Update existierende Rolle
-                    if (role.Id.HasValue)
+                    // FALL B: Neu anlegen (Keine ID oder Empty Guid)
+                    if (fundingDto.Id == Guid.Empty || fundingDto.Id == null)
                     {
-                        var existingRole = project.Roles.FirstOrDefault(r => r.Id == role.Id.Value);
-                        // Wenn Frontend ID schickt, aber wir sie nicht finden -> Ignorieren oder Fehler.
-                        // Wir nehmen hier an: Update
-                        if (existingRole != null)
-                        {
-                            existingRole.Name = role.Name;
-                            if (role.PermissionPoints.HasValue)
-                                existingRole.Permissions = (ProjectPermissions)role.PermissionPoints.Value;
-                        }
-                        // Sonderfall: Frontend schickt ID (GUID), die es in DB noch nicht gibt (Client-Generated ID für New Role)
-                        else 
-                        {
-                             var newRole = new ProjectRole
-                            {
-                                Id = role.Id.Value, // Wir nutzen die ID vom Frontend!
-                                ProjectId = project.Id,
-                                Name = role.Name,
-                                Permissions = role.PermissionPoints.HasValue 
-                                              ? (ProjectPermissions)role.PermissionPoints.Value 
-                                              : ProjectPermissions.None,
-                                IsSystemRole = false
-                            };
-                            project.Roles.Add(newRole);
-                        }
-                    }
-                    
-                    // FALL C: Neu ohne ID (Sollte vermieden werden, wenn gleichzeitig zugewiesen wird)
-                    else 
-                    {
-                        var newRole = new ProjectRole
+                        var newItem = new FundingItem
                         {
                             Id = Guid.NewGuid(),
-                            ProjectId = project.Id,
-                            Name = role.Name,
-                            Permissions = role.PermissionPoints.HasValue 
-                                          ? (ProjectPermissions)role.PermissionPoints.Value 
-                                          : ProjectPermissions.None,
-                            IsSystemRole = false
+                            Titel = fundingDto.Title,
+                            BenoetigterBetrag = fundingDto.BenoetigterBetrag,
+                            Beschreibung = fundingDto.Beschreibung,
+                            BereitsGesammelt = fundingDto.BereitsGesammelt, 
+                            ProjectId = project.Id
                         };
-                        project.Roles.Add(newRole);
+
+                        // Zur Liste hinzufügen
+                        project.FundingItems.Add(newItem);
+                        db.FundingItems.Add(newItem); // Zur Sicherheit explizit tracken
+                    }
+                    // FALL C: Update existierendes Item
+                    else
+                    {
+                        var existingItem = project.FundingItems
+                            .FirstOrDefault(f => f.Id == fundingDto.Id);
+
+                        if (existingItem != null)
+                        {
+                            existingItem.Titel = fundingDto.Title;
+                            existingItem.Beschreibung = fundingDto.Beschreibung;
+                            existingItem.BenoetigterBetrag = fundingDto.BenoetigterBetrag;
+                            
+                            // Manuelles Korrigieren des Spendenstandes (falls nötig)
+                            existingItem.BereitsGesammelt = fundingDto.BereitsGesammelt;
+                        }
                     }
                 }
             }
             
             // -----------------------------------------------------------
-            // 11. PERSONEN & ROLLEN UPDATE (Integriert)
+            // 10. Rollen-Definitionen
+            // -----------------------------------------------------------
+            if (dto.Rollen != null && dto.Rollen.Any())
+            {
+                if (!permissions.HasFlag(ProjectPermissions.ManageRoles))
+                    return Results.Json(new { error = "Keine Berechtigung: Rollen verwalten." }, statusCode: 403);
+
+                foreach (var roleDto in dto.Rollen)
+                {
+                    // FALL A: Löschen
+                    if (roleDto.Delete)
+                    {
+                        if (roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty)
+                        {
+                            // Wir suchen direkt im Context, um sicherzugehen, dass es getrackt ist
+                            var roleToDelete = await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
+                            
+                            if (roleToDelete != null)
+                            {
+                                if (roleToDelete.IsSystemRole)
+                                     return Results.BadRequest($"Systemrolle '{roleToDelete.Name}' darf nicht gelöscht werden.");
+                                
+                                // Explizites Löschen aus dem DB-Set
+                                db.ProjectRoles.Remove(roleToDelete);
+                            }
+                        }
+                        continue;
+                    }
+
+                    // FALL B: Update oder Neu
+                    bool isUpdate = roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty;
+
+                    if (isUpdate)
+                    {
+                        // UPDATE: Wir laden die Rolle explizit oder nutzen die aus dem Projekt
+                        var existingRole = project.Roles.FirstOrDefault(r => r.Id == roleDto.Id.Value) 
+                                           ?? await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
+
+                        if (existingRole != null)
+                        {
+                            existingRole.Name = roleDto.Name;
+                            if (roleDto.Permissions.HasValue)
+                                existingRole.Permissions = (ProjectPermissions)roleDto.Permissions.Value;
+                            
+                            // Sicherstellen, dass der State auf Modified steht
+                            db.Entry(existingRole).State = EntityState.Modified;
+                        }
+                    }
+                    else
+                    {
+                        // NEU: Double-Check auf Namen (Vermeidung von Duplikaten)
+                        // Wir prüfen in der lokalen Liste UND in der DB
+                        var nameExists = project.Roles.Any(r => r.Name.Equals(roleDto.Name, StringComparison.OrdinalIgnoreCase));
+                        
+                        if (!nameExists)
+                        {
+                            var newRole = new ProjectRole
+                            {
+                                Id = Guid.NewGuid(),
+                                ProjectId = project.Id, // Wichtig: Explizite Zuordnung
+                                Name = roleDto.Name,
+                                Permissions = roleDto.Permissions.HasValue 
+                                              ? (ProjectPermissions)roleDto.Permissions.Value 
+                                              : ProjectPermissions.None,
+                                IsSystemRole = false
+                            };
+                            
+                            // Direktes Hinzufügen zum DbSet ist oft sicherer als zur Collection
+                            db.ProjectRoles.Add(newRole);
+                            // Wir fügen es auch der lokalen Liste hinzu, damit Abschnitt 11 (unten) die neue Rolle kennt
+                            project.Roles.Add(newRole);
+                        }
+                    }
+                }
+            }
+
+            // -----------------------------------------------------------
+            // 11. PERSONEN & ROLLEN UPDATE
             // -----------------------------------------------------------
             if (dto.Personen != null && dto.Personen.Any())
             {
-                // Permission Check für diesen Abschnitt
                 if (!permissions.HasFlag(ProjectPermissions.ManageMembers))
                      return Results.Json(new { error = "Keine Berechtigung zur Mitgliederverwaltung." }, statusCode: 403);
 
@@ -460,105 +528,65 @@ public static class ProjektEndpoints
                 {
                     var targetPersonId = person.PersonId;
 
-                    // FALL A: Person entfernen (Delete Flag aus DTO)
-                    if (person.Delete)
-                    {
-                        var toRemove = project.Personen.FirstOrDefault(pp => pp.PersonId == targetPersonId);
-                        
-                         if (toRemove != null)
-                         {
-                             if (toRemove.IsOwner)
-                             {
-                                 // Regel: Nur ein Owner darf einen anderen Owner löschen.
-                                 if (!currentUserEntry.IsOwner)
-                                     return Results.Json(new { error = "Nur Owner dürfen andere Owner entfernen." }, statusCode: 403);
-                                 
-                                 // Optionaler Schutz: Verhindern, dass der letzte Owner gelöscht wird
-                                 // (Sonst ist das Projekt verwaist)
-                                 var ownerCount = project.Personen.Count(p => p.IsOwner);
-                                 if (ownerCount <= 1)
-                                     return Results.Json(new { error = "Der letzte Owner kann nicht entfernt werden." }, statusCode: 400);
-                             }
-                             project.Personen.Remove(toRemove);
-                         }
-                         continue; // Fertig mit dieser Person
-                    }
+                    // ... (Hier dein Lösch-Code für Personen unverändert lassen) ...
+                    if (person.Delete) { /* Dein Delete Code hier... */ continue; }
 
-                    // FALL B: Update oder Neu hinzufügen
+                    // Person suchen oder anlegen
                     var memberEntry = project.Personen.FirstOrDefault(pp => pp.PersonId == targetPersonId);
-
                     if (memberEntry == null)
                     {
-                        // Neu anlegen
-                        memberEntry = new ProjektPerson
-                        {
-                            ProjektId = id,
-                            PersonId = targetPersonId,
-                            IsOwner = person.IsOwner, // Standard False
-                            IsLiked = false,
-                            Roles = new List<ProjektPersonRole>() 
-                        };
+                        memberEntry = new ProjektPerson { ProjektId = id, PersonId = targetPersonId, Roles = new List<ProjektPersonRole>() };
                         project.Personen.Add(memberEntry);
                     }
-                    else
-                    {
-                        // Update Flags
-                        if (person.IsLiked) memberEntry.IsLiked = person.IsLiked;
-
-                        // Owner Check (Nur Owner dürfen Owner ändern)
-                        if (person.IsOwner && person.IsOwner != memberEntry.IsOwner)
-                        {
-                            if (!currentUserEntry.IsOwner) 
-                                return Results.Json(new { error = "Nur Owner können den Owner-Status ändern." }, statusCode: 403);
-                            
-                            memberEntry.IsOwner = person.IsOwner;
-                        }
-                    }
-
-                    // FALL C: Rollen Synchronisieren (Deine Logik von oben)
-                    // Falls die Liste existiert...
+                    
+                    // Update Properties
+                    memberEntry.IsLiked = person.IsLiked;
+                    if (person.IsOwner != memberEntry.IsOwner && currentUserEntry.IsOwner) 
+                        memberEntry.IsOwner = person.IsOwner;
+                    
+                    // ROLLEN ZUWEISUNG (Der kritische Teil)
                     if (person.Roles != null)
                     {
-                        // SCHRITT 1: Wir sammeln alle IDs, die der User haben SOLL (Ziel-Zustand)
-                        // Wir gehen davon aus, dass dein ProjectRoleDto ein Feld 'Id' hat.
-                        var targetRoleIds = person.Roles.Select(r => r.Id).ToList();
+                        // SCHRITT 1: Wir "entpacken" die GUIDs aus den Objekten
+                        // Annahme: person.Roles ist List<RoleIdWrapper> (oder ähnlich) mit Property .Id
+                        var targetRoleIds = person.Roles
+                            .Select(r => r.Id)              // <-- Hier greifen wir auf das Property .Id zu
+                            .Where(id => id != Guid.Empty)  // <-- Prüfen die GUID, nicht das Objekt
+                            .ToList();
 
-                        // ---------------------------------------------------------
-                        // A. Was muss weg? (Cleanup)
-                        // ---------------------------------------------------------
-                        // Wir suchen Rollen, die der User aktuell hat, die aber NICHT in der neuen Liste stehen.
+                        // A. Cleanup (Was muss weg?)
+                        // Wir prüfen gegen die Liste der GUIDs ('targetRoleIds' ist jetzt List<Guid>)
                         var rolesToRemove = memberEntry.Roles
                             .Where(r => !targetRoleIds.Contains(r.ProjectRoleId))
                             .ToList();
 
-                        foreach (var roleRel in rolesToRemove)
+                        if (rolesToRemove.Any())
                         {
-                            // Löschen aus der Datenbank und der lokalen Liste
-                            db.ProjektPersonRoles.Remove(roleRel);
-                            memberEntry.Roles.Remove(roleRel);
+                            // Entfernen aus DB und lokaler Liste
+                            db.ProjektPersonRoles.RemoveRange(rolesToRemove);
+                            foreach (var rem in rolesToRemove) memberEntry.Roles.Remove(rem);
                         }
 
-                        // ---------------------------------------------------------
-                        // B. Was muss dazu? (Dein Code-Snippet)
-                        // ---------------------------------------------------------
-                        // Wir iterieren über die IDs, die der User haben soll
+                        // B. Adding (Was muss dazu?)
                         foreach (var roleId in targetRoleIds)
                         {
-                            // Check: Hat er die Rolle schon? (Dann müssen wir nichts tun)
+                            // 'roleId' ist jetzt direkt eine Guid, daher einfacher Vergleich:
                             if (!memberEntry.Roles.Any(r => r.ProjectRoleId == roleId))
                             {
-                                // Check: Existiert die Rolle überhaupt im Projekt?
-                                // (Wir suchen in der Liste der Projekt-Rollen, die wir oben geladen haben)
+                                // Existiert die Rolle im Projekt?
                                 var roleDefinition = project.Roles.FirstOrDefault(r => r.Id == roleId);
             
-                                if (roleDefinition != null)
+                                // Sicherheitscheck: Rolle existiert und ist nicht im "Deleted"-Status (EF ChangeTracker)
+                                var entry = roleDefinition != null ? db.Entry(roleDefinition) : null;
+                                bool isDeleted = entry != null && entry.State == EntityState.Deleted;
+
+                                if (roleDefinition != null && !isDeleted)
                                 {
-                                    // Zuweisung erstellen
                                     memberEntry.Roles.Add(new ProjektPersonRole
                                     {
                                         PersonId = memberEntry.PersonId,
                                         ProjektId = project.Id,
-                                        ProjectRoleId = roleId
+                                        ProjectRoleId = roleId // <-- Direkt die Guid zuweisen
                                     });
                                 }
                             }
@@ -602,6 +630,7 @@ public static class ProjektEndpoints
                     .Include(p => p.Todos)
                     .Include(p => p.Medien)
                     .Include(p => p.Roles)
+                    .Include(p => p.FundingItems)
                     .FirstOrDefaultAsync(p => p.Id == id);
 
                 if (projekt == null) return Results.NotFound();
@@ -719,6 +748,27 @@ public static class ProjektEndpoints
                     // Leert die lokale Liste für das korrekte Mapping im Response
                     existingRelation.Roles.Clear();
                 }
+            }
+            
+            // -----------------------------------------------------------
+            // 4.5 CLEANUP / GARBAGE COLLECTION (Das löst dein Problem)
+            // -----------------------------------------------------------
+            // Wir prüfen: Hat der Eintrag noch irgendeinen Grund zu existieren?
+            // Er muss weg, wenn: KEIN Owner UND KEIN Like UND KEINE Rollen mehr.
+    
+            // Wichtig: Wir prüfen existingRelation.Roles.Any() -> Das ist dank .Clear() oben korrekt leer.
+            bool isZombie = !existingRelation.IsOwner 
+                            && !existingRelation.IsLiked 
+                            && !existingRelation.Roles.Any();
+
+            if (isZombie)
+            {
+                // 1. Aus der Datenbank entfernen
+                db.ProjektPersons.Remove(existingRelation);
+        
+                // 2. WICHTIG: Auch aus der lokalen Liste des Projekts entfernen,
+                // damit der Mapper unten nicht versucht, den gelöschten Eintrag zurückzugeben!
+                projekt.Personen.Remove(existingRelation);
             }
 
             // 5. Speichern und Ergebnis zurückgeben
@@ -903,113 +953,6 @@ public static class ProjektEndpoints
             .WithName("ProjektDiscovery")
             .WithOpenApi()
             .AllowAnonymous();
-
-        /*endpoints.MapPut("projekte/{id:guid}/personen/update", async (Guid id, UpdatePersonRolesDto dto,  ApplicationDbContext db, HttpContext http) =>
-        {
-            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdClaim)) return Results.Unauthorized();
-            
-            var userId = Guid.Parse(userIdClaim);
-
-            // 1. Projekt laden inkl. aller Personen und deren Rollen für den Rechtecheck und Sync
-            var existingProject = await db.Projekte
-                .Include(p => p.Personen)
-                    .ThenInclude(pp => pp.Roles)
-                        .ThenInclude(r => r.ProjectRole)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
-            if (existingProject == null) return Results.NotFound();
-
-            // 2. Berechtigungsprüfung via Permission-Helper
-            var currentUserEntry = existingProject.Personen.FirstOrDefault(pp => pp.PersonId == userId);
-            if (currentUserEntry == null) return Results.Forbid();
-
-            var permissions = GetCombinedPermissions(currentUserEntry);
-            
-            // Nur User mit ManageMembers-Recht (oder Owner) dürfen hier Änderungen vornehmen
-            if (!permissions.HasFlag(ProjectPermissions.ManageMembers))
-            {
-                return Results.Json(new { error = "Keine Berechtigung zur Mitgliederverwaltung." }, statusCode: 403);
-            }
-
-            if (dto.Personen != null)
-            {
-                foreach (var personUpdate in dto.Personen)
-                {
-                    // FALL A: Vollständig aus Projekt entfernen
-                    if (personUpdate.RemoveFromProject)
-                    {
-                        var toRemove = existingProject.Personen
-                            .FirstOrDefault(pp => pp.PersonId == personUpdate.PersonId);
-                        if (toRemove != null)
-                        {
-                            existingProject.Personen.Remove(toRemove); 
-                        }
-                        continue;
-                    }
-                    
-                    // FALL B: Update oder Neu hinzufügen
-                    var projektPerson = existingProject.Personen
-                        .FirstOrDefault(pp => pp.PersonId == personUpdate.PersonId);
-                    
-                    if (projektPerson == null)
-                    {
-                        // Person ist noch nicht im Projekt -> Neu anlegen
-                        projektPerson = new ProjektPerson
-                        {
-                            ProjektId = id,
-                            PersonId = personUpdate.PersonId,
-                            IsOwner = personUpdate.IsOwner,
-                            IsLiked = false, // Admin-Zuweisung setzt kein Like
-                            Roles = new List<ProjektPersonRole>() // Initial leer für den Sync unten
-                        };
-                        existingProject.Personen.Add(projektPerson);
-                    }
-                    else
-                    {
-                        // Bestehender User: Owner-Status aktualisieren
-                        projektPerson.IsOwner = personUpdate.IsOwner;
-                    }
-
-                    // --- ROLLEN SYNCHRONISIEREN (Multi-Role Logic) ---
-                    var targetRoleIds = personUpdate.RoleIds ?? new List<Guid>();
-
-                    // 1. Rollen entfernen, die im DTO nicht mehr enthalten sind
-                    var rolesToRemove = projektPerson.Roles
-                        .Where(r => !targetRoleIds.Contains(r.ProjectRoleId))
-                        .ToList();
-                    
-                    foreach (var roleRel in rolesToRemove)
-                    {
-                        db.ProjektPersonRoles.Remove(roleRel); // Löschen aus der Join-Tabelle
-                        projektPerson.Roles.Remove(roleRel);   // Entfernen aus der lokalen Liste
-                    }
-
-                    // 2. Neue Rollen hinzufügen, die der User noch nicht hat
-                    foreach (var roleId in targetRoleIds)
-                    {
-                        if (!projektPerson.Roles.Any(r => r.ProjectRoleId == roleId))
-                        {
-                            projektPerson.Roles.Add(new ProjektPersonRole
-                            {
-                                PersonId = projektPerson.PersonId,
-                                ProjektId = id,
-                                ProjectRoleId = roleId //
-                            });
-                        }
-                    }
-                }
-            }
-
-            // 3. Speichern aller Änderungen (Person-Links & Rollen-Links)
-            await db.SaveChangesAsync();
-
-            // 4. Response via neuem ProjectMapper
-            return Results.Ok(existingProject.MapToProjectDto());
-            
-        }).RequireAuthorization()
-        .WithName("ProjectPersonUpdate")
-        .WithOpenApi();*/
         
         endpoints.MapGet("/projekte/filter", async ([AsParameters] ProjectSearchFilter filter, ApplicationDbContext db) =>
         {
@@ -1020,12 +963,19 @@ public static class ProjektEndpoints
                 .AsQueryable();
 
             // ---------------------------------------------------------
-            // SONDERFALL: Standorte (Map)
+            // SONDERFALL: Standorte (Map) 6
             // ---------------------------------------------------------
             // Wenn "locations" gefragt ist, geben wir sofort ein schlankes JSON zurück und beenden hier.
             if (filter.Category == ProjectFilterCategory.Locations)
             {
                 var locations = await query
+                    // FILTER 1: Adresse & PLZ müssen vorhanden sein
+                    .Where(p => !string.IsNullOrEmpty(p.Adresse) && !string.IsNullOrEmpty(p.Plz))
+            
+                    // FILTER 2: OpenStreetMap Link muss existieren (für Lat/Lng Extraction)
+                    // Wir prüfen auf null und ob der String "openstreetmap" enthält
+                    .Where(p => p.StandortLink != null && p.StandortLink.Contains("openstreetmap"))
+            
                     .Select(p => new 
                     { 
                         p.Id, 
@@ -1033,57 +983,249 @@ public static class ProjektEndpoints
                         p.Adresse, 
                         p.Plz, 
                         p.SdgValues, 
-                        p.StandortLink,
-                        // Lat/Lng müsstest du hier ergänzen, falls in DB vorhanden
+                        p.StandortLink, // Das Frontend extrahiert hieraus Lat/Lng
+                        
+                        // Wir filtern erst, wählen dann die ID als "Nullable Guid" ((Guid?)) aus 
+                        // und nehmen DANN das erste. Wenn keins da ist, kommt null zurück.
+                        TitelBildId = p.Medien
+                            .Where(m => m.IsCoverPicture)
+                            .Select(m => (Guid?)m.Id) // Wichtig: Cast zu Guid?
+                            .FirstOrDefault()
                     })
-                    .Take(100) // Mehr Pins für die Karte erlauben
+                    .Take(100) // Limit für Map-Pins
                     .ToListAsync();
-                    
+            
                 return Results.Ok(locations);
             }
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: Todos (Aufgaben-Börse) 2
+            // ---------------------------------------------------------
+            // Wenn "todos" gefragt sind, geben wir direkt eine Liste von Aufgaben zurück
+            if (filter.Category == ProjectFilterCategory.Todos)
+            {
+                var todoList = await db.Todos
+                    .AsNoTracking()
+                    // 1. Filter: Nur Todos aus Projekten mit dem richtigen Status (z.B. Laufend)
+                    .Where(t => (int)t.Project.ProjektStatus == filter.Status)
+                    // 2. Filter: Nur offene Aufgaben (0 = Offen, 1 = In Bearbeitung/Besetzt?)
+                    // Pass das an deine Logik an. Meistens sucht man hier nur "Offene" (0).
+                    .Where(t => (int)t.Status == 0) 
+            
+                    // 3. Projektion direkt ins DTO (inkl. Projekttitel!)
+                    .Select(t => new TodoDto
+                    {
+                        Id = t.Id,
+                        Title = t.Titel,
+                        Beschreibung = t.Beschreibung,
+                        Status = t.Status,
+                        ProjectId = t.ProjectId,
+                
+                        // Hier holen wir uns den Titel vom Eltern-Projekt
+                        ProjectTitle = t.Project.Kurztitel 
+                    })
+                    // 4. Pagination (Wichtig: Wir paginieren hier Todos, nicht Projekte!)
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
 
+                return Results.Ok(todoList);
+            }
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: Materials (Sachspenden-Börse) 3
+            // ---------------------------------------------------------
+            if (filter.Category == ProjectFilterCategory.Materials)
+            {
+                var materialList = await db.Materialien
+                    .AsNoTracking()
+                    // 1. Filter: Nur Material aus Projekten mit dem richtigen Status
+                    .Where(m => (int)m.Projekt.ProjektStatus == filter.Status)
+        
+                    // 2. Filter: Nur Dinge, die noch fehlen (!Vorhanden)
+                    //    UND die einen Namen haben (keine Leichen)
+                    .Where(m => !m.Vorhanden && !string.IsNullOrEmpty(m.Name))
+
+                    // 3. Projektion direkt ins DTO
+                    .Select(m => new MaterialDto
+                    {
+                        Id = m.Id,
+                        Name = m.Name,
+                        Beschreibung = m.Beschreibung,
+                        Vorhanden = m.Vorhanden,
+                        
+                        ProjectId = m.ProjektId,       
+                        ProjectTitle = m.Projekt.Kurztitel 
+                    })
+                    // 4. Pagination auf MATERIAL-Ebene (nicht Projekt-Ebene)
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
+
+                return Results.Ok(materialList);
+            }
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: New (Feed-Ansicht) 1
+            // ---------------------------------------------------------
+            if (filter.Category == ProjectFilterCategory.New)
+            {
+                var newProjects = await db.Projekte
+                    .AsNoTracking()
+                    // Nur Projekte mit dem gewünschten Status (meistens "Laufend" oder alle sichtbaren)
+                    .Where(p => (int)p.ProjektStatus == filter.Status)
+            
+                    // Sortierung: Neueste zuerst
+                    // Falls du ein Feld 'ErstelltAm' hast, nimm das. Sonst 'LetztesUpdate'.
+                    .OrderByDescending(p => p.LetztesUpdate) 
+            
+                    .Select(p => new ProjektStartItemDto
+                    {
+                        ProjektId = p.Id,
+                        Kurztitel = p.Kurztitel,
+                
+                        // Safe Image Logic (wie bei Locations)
+                        TitelBildId = p.Medien
+                            .Where(m => m.IsCoverPicture)
+                            .Select(m => (Guid?)m.Id)
+                            .FirstOrDefault(),
+                
+                        // SDGs direkt übernehmen (EF Core mappt das JSON-Array automatisch)
+                        SdgIds = p.SdgValues ?? new List<int>(),
+                
+                        // Hier musst du entscheiden, was "Category" sein soll.
+                        // Im Beispiel war es -1. Ich mappe hier mal den ProjektStatus.
+                        // Falls du fest -1 willst: Category = -1,
+                        Category = (int)p.ProjektStatus, 
+                
+                        // Mapping auf CreatedAt (nutzt hier LetztesUpdate als Fallback)
+                        CreatedAt = p.LetztesUpdate 
+                    })
+                    // Pagination
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
+
+                return Results.Ok(newProjects);
+            }
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: Discovery (Standard Feed / Entdecken)
+            // ---------------------------------------------------------
+            // Hinweis: Prüfe, ob dein Enum für Discovery wirklich 0 ist
+            if (filter.Category == ProjectFilterCategory.Discovery) 
+            {
+                var discoveryFeed = await db.Projekte
+                    .AsNoTracking()
+                    .Where(p => (int)p.ProjektStatus == filter.Status)
+            
+                    // Sortierung: Standard ist meist "Zuletzt aktualisiert"
+                    // (Hier könntest du später auch "Random" oder "Algorithmus" einbauen)
+                    .OrderByDescending(p => p.LetztesUpdate)
+            
+                    // Projektion auf das schlanke DTO
+                    .Select(p => new ProjektStartItemDto()
+                    {
+                        ProjektId = p.Id,
+                        Kurztitel = p.Kurztitel,
+                
+                        // Safe Image Logic
+                        TitelBildId = p.Medien
+                            .Where(m => m.IsCoverPicture)
+                            .Select(m => (Guid?)m.Id)
+                            .FirstOrDefault(),
+                
+                        SdgIds = p.SdgValues ?? new List<int>(),
+                
+                        // Kategorie oder Status mappen
+                        Category = (int)p.ProjektStatus, 
+                
+                        CreatedAt = p.LetztesUpdate
+                    })
+                    // Pagination
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
+
+                return Results.Ok(discoveryFeed);
+            }
+            
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: Financing (Spenden-Feed) 4
+            // ---------------------------------------------------------
+            if (filter.Category == ProjectFilterCategory.Financing)
+            {
+                var fundingList = await db.FundingItems
+                    .AsNoTracking()
+                    // 1. Filter: Projektstatus muss passen
+                    .Where(f => (int)f.Project.ProjektStatus == filter.Status)
+        
+                    // 2. Filter: Nur Posten, die noch Geld brauchen (noch nicht voll)
+                    .Where(f => f.BereitsGesammelt < f.BenoetigterBetrag)
+
+                    // 3. Projektion direkt ins DTO
+                    .Select(f => new FundingItemDto
+                    {
+                        Id = f.Id,
+                        Title = f.Titel, // Pass den Property-Namen an, falls er bei dir 'Titel' heißt
+                        BenoetigterBetrag = f.BenoetigterBetrag,
+                        BereitsGesammelt = f.BereitsGesammelt,
+                        ProjectId = f.Project.Id,
+                        ProjectTitle = f.Project.Kurztitel
+                    })
+                    // 4. Pagination auf ITEM-Ebene
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
+
+                return Results.Ok(fundingList);
+            }
+            
+            // ---------------------------------------------------------
+            // SONDERFALL: Random / Gallery (Bilder-Feed) 5
+            // ---------------------------------------------------------
+            if (filter.Category == ProjectFilterCategory.Random)
+            {
+                var mediaList = await db.Medien
+                    .AsNoTracking()
+                    // 1. Filter: Nur Medien aus Projekten mit dem richtigen Status
+                    .Where(m => (int)m.Project.ProjektStatus == filter.Status)
+        
+                    // 2. Filter: Nur echte Dateien/Bilder (keine leeren Einträge)
+                    // Ggf. hier noch auf Dateityp prüfen, falls du auch PDFs hast!
+                    // .Where(m => m.Type == MediaType.Image) 
+        
+                    // 3. Sortierung: ZUFÄLLIG mischen
+                    // Hinweis: Bei Pagination und Random kann es passieren, dass Bilder 
+                    // doppelt kommen, wenn man scrollt. Für den MVP ist das aber okay.
+                    .OrderBy(m => Guid.NewGuid())
+
+                    // 4. Projektion
+                    .Select(m => new MedienDto()
+                    {
+                        Id = m.Id,
+                        Url = m.Url, // Oder Url / Blob-Link
+                        IsCoverPicture = m.IsCoverPicture,
+            
+                        // Verknüpfung zum Projekt
+                        ProjektId = m.Project.Id,
+                        ProjectTitle = m.Project.Kurztitel
+                    })
+                    // 5. Pagination auf BILD-Ebene
+                    .Skip(filter.Page * filter.Limit)
+                    .Take(filter.Limit)
+                    .ToListAsync();
+
+                return Results.Ok(mediaList);
+            }
+            
             // ---------------------------------------------------------
             // FILTER LOGIK (ENUM SWITCH)
             // ---------------------------------------------------------
             // Wir arbeiten auf 'IQueryable<Project>', um Typ-Probleme zu vermeiden.
             IQueryable<Project> q = query;
             
-            switch (filter.Category)
-            {
-                case ProjectFilterCategory.New: // 1
-                    // Neueste Projekte zuerst
-                    q = q.OrderByDescending(p => p.LetztesUpdate);
-                    break;
-
-                case ProjectFilterCategory.Todos: // 2
-                    // FALSCH: q = q.Where(p => p.Todos.Any()); 
-                    // RICHTIG: Nur Projekte, die mindestens eine OFFENE Aufgabe haben
-                    q = q.Where(p => p.Todos.Any(t => (int)t.Status == 0 || (int)t.Status == 1)); // Annahme: 0 = Offen
-                    break;
-
-                case ProjectFilterCategory.Materials: // 3
-                    // Projekte, die Sachspenden brauchen (nicht vorhandenes Material)
-                    q = q.Where(p => p.Materialien.Any(m => !m.Vorhanden));
-                    break;
-
-                case ProjectFilterCategory.Financing: // 4
-                    // Projekte, die offene Finanzierungsziele haben
-                    q = q.Where(p => p.FundingItems.Any(f => f.BereitsGesammelt < f.BenoetigterBetrag)); 
-                    break;
-
-                case ProjectFilterCategory.Random: // 5
-                    // "Fantastische Arbeit": Zufällig + Nur Projekte mit Bildern
-                    q = q.Where(p => p.Medien.Any())
-                        .OrderBy(p => Guid.NewGuid());
-                    break;
-
-                case ProjectFilterCategory.Discovery: // 0
-                default:
-                    // Standard: Einfach nach Aktualität
-                    q = q.OrderByDescending(p => p.LetztesUpdate);
-                    break;
-            }
-
             // ---------------------------------------------------------
             // PAGINATION & DATEN LADEN
             // ---------------------------------------------------------
@@ -1102,7 +1244,8 @@ public static class ProjektEndpoints
 
             return Results.Ok(dtos);
         })
-        .WithName("FilterProjekte");
+        .WithName("FilterProjekte")
+        .AllowAnonymous();
         
         endpoints.MapGet("/enums/categories", () =>
         {

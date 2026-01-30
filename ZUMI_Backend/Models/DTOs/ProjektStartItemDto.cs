@@ -17,5 +17,7 @@ namespace ZUMI_Backend.Models.DTOs
         public Guid? TitelBildId { get; set; }
 
         public List<ProjectRoleDto> Rollen { get; set; } = new List<ProjectRoleDto>();
+        
+        public string? CreatedAt { get; set; }
     }
 }

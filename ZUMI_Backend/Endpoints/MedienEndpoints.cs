@@ -196,32 +196,36 @@ public static class MedienEndpoints
         
         // GET /api/v1/images/{bildId:guid} - Bild streamen (Auth required, Owner-Check)
         endpoints.MapGet("/bilder/{bildId:guid}", async (Guid bildId, ApplicationDbContext db, HttpContext http) =>
-        {
-            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdClaim))
-                return Results.Unauthorized();
+            {
+                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Results.Unauthorized();
 
-            var userId = Guid.Parse(userIdClaim);
+                var userId = Guid.Parse(userIdClaim);
 
-            // Lade Bild und prüfe Ownership (via ProjektPerson)
-            var bild = await db.Medien
-                .Include(e => e.Project)  // Für Owner-Check
-                .ThenInclude(p => p.Personen)  // Personen via Through
-                .FirstOrDefaultAsync(e => e.Id == bildId);
+                // Lade Bild und prüfe Ownership (via ProjektPerson)
+                var bild = await db.Medien
+                    .Include(e => e.Project) // Für Owner-Check
+                    .ThenInclude(p => p.Personen) // Personen via Through
+                    .FirstOrDefaultAsync(e => e.Id == bildId);
 
-            if (bild == null) return Results.NotFound();
+                if (bild == null) return Results.NotFound();
 
-            // Datei laden und streamen (kein Download-Header, um Inline-Viewing zu erlauben)
-            var filePath = Path.Combine(UploadPath, bild.Url.StartsWith("/uploads", StringComparison.OrdinalIgnoreCase) ? bild.Url.Substring("/uploads".Length).TrimStart('/') : bild.Url.TrimStart('/')); 
-            if (!File.Exists(filePath)) return Results.NotFound();
+                // Datei laden und streamen (kein Download-Header, um Inline-Viewing zu erlauben)
+                var filePath = Path.Combine(UploadPath,
+                    bild.Url.StartsWith("/uploads", StringComparison.OrdinalIgnoreCase)
+                        ? bild.Url.Substring("/uploads".Length).TrimStart('/')
+                        : bild.Url.TrimStart('/'));
+                if (!File.Exists(filePath)) return Results.NotFound();
 
-            var fileBytes = await File.ReadAllBytesAsync(filePath);
-            var contentType = GetContentType(bild.Url);  // Helper: z. B. ".jpg" → "image/jpeg"
+                var fileBytes = await File.ReadAllBytesAsync(filePath);
+                var contentType = GetContentType(bild.Url); // Helper: z. B. ".jpg" → "image/jpeg"
 
-            return Results.File(fileBytes, contentType, enableRangeProcessing: true);  // Range-Support für Partial-Requests
-        })
-        .WithName("ImageServe")
-        .WithOpenApi();
+                return Results.File(fileBytes, contentType,
+                    enableRangeProcessing: true); // Range-Support für Partial-Requests
+            })
+            .WithName("ImageServe")
+            .AllowAnonymous();
 
         endpoints.MapGet("/medienstatus", () =>
         {
@@ -245,19 +249,11 @@ public static class MedienEndpoints
         
         endpoints.MapGet("/videos/{videoId:guid}", async (Guid videoId, ApplicationDbContext db, HttpContext http) =>
         {
-            // ... Auth & Owner Check
-            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdClaim)) return Results.Unauthorized();
-            var userId = Guid.Parse(userIdClaim);
-
             var video = await db.Medien
                 .Include(m => m.Project).ThenInclude(p => p.Personen)
                 .FirstOrDefaultAsync(m => m.Id == videoId);
 
             if (video == null) return Results.NotFound();
-
-            var isOwnerOrParticipating = video.Project.Personen.Any(pp => pp.PersonId == userId && pp.IsOwner || pp.Roles.Any()|| pp.IsLiked);
-            if (!isOwnerOrParticipating) return Results.Forbid();
             
             string filePath;
             string contentType;

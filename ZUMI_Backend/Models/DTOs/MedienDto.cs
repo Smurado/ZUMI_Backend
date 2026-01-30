@@ -14,4 +14,6 @@ public class MedienDto
     public string OriginalFileName { get; set; }
     
     public bool IsCoverPicture { get; set; }
+    
+    public string? ProjectTitle { get; set; }
 }
