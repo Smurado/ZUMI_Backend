@@ -197,12 +197,6 @@ public static class MedienEndpoints
         // GET /api/v1/images/{bildId:guid} - Bild streamen (Auth required, Owner-Check)
         endpoints.MapGet("/bilder/{bildId:guid}", async (Guid bildId, ApplicationDbContext db, HttpContext http) =>
             {
-                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrEmpty(userIdClaim))
-                    return Results.Unauthorized();
-
-                var userId = Guid.Parse(userIdClaim);
-
                 // Lade Bild und prüfe Ownership (via ProjektPerson)
                 var bild = await db.Medien
                     .Include(e => e.Project) // Für Owner-Check
