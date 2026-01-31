@@ -45,6 +45,7 @@
 
     <ItemGroup>
       <Folder Include="uploads\projekte\" />
+      <Folder Include="wwwroot\images\partners\" />
     </ItemGroup>
 
 </Project>

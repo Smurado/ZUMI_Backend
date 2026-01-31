@@ -211,5 +211,6 @@ api.MapApiRootEndpoints();
 api.MapInternalEndpoints();
 api.MapFeedbackEndpoints();
 api.MapAltersgruppeEndpoints();
+api.MapMetaEndpoints();
 
 app.Run();
