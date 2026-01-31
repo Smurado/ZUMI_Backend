@@ -82,6 +82,8 @@ services:
   
 volumes:
   postgres_data:
+    external: true
+    name: zumi_backend-feature-csharp-migration_postgres_data
 
 networks:
   app-network:
