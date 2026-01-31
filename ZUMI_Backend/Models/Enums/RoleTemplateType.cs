@@ -1,9 +1,15 @@
 namespace ZUMI_Backend.Models.Enums;
 
+using System.ComponentModel.DataAnnotations;
+
 public enum RoleTemplateType
 {
-    Standard = 0,      // Erstellt: Owner, Mitglied, Liker
-    Schulklasse = 1,   // Erstellt zusätzlich: Lehrer, Schüler
-    Verein = 2,        // Erstellt zusätzlich: Kassenwart, Vorstand
-    
+    [Display(Name = "Standard: Projektleitung und Mitglied")]
+    Standard = 0,
+
+    [Display(Name = "Schulklasse: Fügt Lehrer (Admin) und Schüler hinzu")]
+    Schulklasse = 1,
+
+    [Display(Name = "Verein: Fügt Vorstand und Kassenwart hinzu")]
+    Verein = 2
 }

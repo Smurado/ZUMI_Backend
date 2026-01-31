@@ -43,5 +43,5 @@ public class CreateProjectDto
 
     public string? Finance { get; set; }
 
-    public RoleTemplateType Template { get; set; } = RoleTemplateType.Standard;
+    public RoleTemplateType RoleTemplate { get; set; } = RoleTemplateType.Standard;
 }

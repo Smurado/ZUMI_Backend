@@ -20,67 +20,66 @@ public static class ProjektEndpoints
     {
         // POST /api/v1/projekte - Projekt erstellen
         endpoints.MapPost("/projekte/create", async (CreateProjectDto dto, ApplicationDbContext db, HttpContext http) =>
-        {
-            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdClaim)) 
-                return Results.Unauthorized();
-
-            var userId = Guid.Parse(userIdClaim);
-
-            // Neues Project erstellen
-            var newProject = new Project
             {
-                Id = Guid.NewGuid(),
-                ProjektStatus = ProjektStatus.Geplant
-            };
+                var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Results.Unauthorized();
 
-            // Essentials mappen
-            newProject.ApplyCreateFromDto(dto);
-            
-            db.Projekte.Add(newProject);
-            
-            // 2. Rollen generieren (Factory)
-            // Achtung: CreateDefaultRoles muss jetzt KEINEN "Liker" mehr erzeugen!
-            var roles = ProjectRoleFactory.CreateDefaultRoles(newProject.Id, dto.Template); 
-            db.ProjectRoles.AddRange(roles);
-            
-            // 3. Owner verknüpfen
-            // Wir geben ihm die "Mitglied" Rolle (oder eine Admin-Rolle aus dem Template)
-            var adminRole = roles.FirstOrDefault(r => r.Permissions.HasFlag(ProjectPermissions.ManageMembers)) 
-                            ?? roles.FirstOrDefault(r => r.Name == "Mitglied");
+                var userId = Guid.Parse(userIdClaim);
 
-            var ownerPerson = new ProjektPerson
-            {
-                ProjektId = newProject.Id,
-                PersonId = userId,
-                IsOwner = true,
-                IsLiked = false,
-                // Neue Logik: Rolle wird über die Liste hinzugefügt
-                Roles = new List<ProjektPersonRole>()
-            };
-
-            if (adminRole != null)
-            {
-                ownerPerson.Roles.Add(new ProjektPersonRole
+                // Neues Project erstellen
+                var newProject = new Project
                 {
-                    ProjectRoleId = adminRole.Id,
-                });
-            }
-            
-            db.ProjektPersons.Add(ownerPerson);
+                    Id = Guid.NewGuid(),
+                    ProjektStatus = ProjektStatus.Geplant
+                };
 
-            await db.SaveChangesAsync();
-            
-            // Wir laden das Projekt inkl. Rollen neu für das korrekte Response-DTO
-            var createdProject = await db.Projekte
-                .Include(p => p.Personen).ThenInclude(pp => pp.Roles).ThenInclude(r => r.ProjectRole)
-                .FirstOrDefaultAsync(p => p.Id == newProject.Id);
-            
-            return Results.Created($"/api/v1/projekte/{newProject.Id}", createdProject.MapToProjectDto());
-        })
-        .RequireAuthorization()
-        .WithName("ProjektCreate")
-        .WithOpenApi();
+                // Essentials mappen
+                newProject.ApplyCreateFromDto(dto);
+
+                db.Projekte.Add(newProject);
+
+                // 2. Rollen generieren (Factory)
+                // Achtung: CreateDefaultRoles muss jetzt KEINEN "Liker" mehr erzeugen!
+                var roles = ProjectRoleFactory.CreateDefaultRoles(newProject.Id, dto.RoleTemplate);
+                db.ProjectRoles.AddRange(roles);
+
+                // 3. Owner verknüpfen
+                // Wir geben ihm die "Mitglied" Rolle (oder eine Admin-Rolle aus dem RoleTemplate)
+                var adminRole = roles.FirstOrDefault(r => r.Permissions.HasFlag(ProjectPermissions.ManageMembers))
+                                ?? roles.FirstOrDefault(r => r.Name == "Mitglied");
+
+                var ownerPerson = new ProjektPerson
+                {
+                    ProjektId = newProject.Id,
+                    PersonId = userId,
+                    IsOwner = true,
+                    IsLiked = false,
+                    // Neue Logik: Rolle wird über die Liste hinzugefügt
+                    Roles = new List<ProjektPersonRole>()
+                };
+
+                if (adminRole != null)
+                {
+                    ownerPerson.Roles.Add(new ProjektPersonRole
+                    {
+                        ProjectRoleId = adminRole.Id,
+                    });
+                }
+
+                db.ProjektPersons.Add(ownerPerson);
+
+                await db.SaveChangesAsync();
+
+                // Wir laden das Projekt inkl. Rollen neu für das korrekte Response-DTO
+                var createdProject = await db.Projekte
+                    .Include(p => p.Personen).ThenInclude(pp => pp.Roles).ThenInclude(r => r.ProjectRole)
+                    .FirstOrDefaultAsync(p => p.Id == newProject.Id);
+
+                return Results.Created($"/api/v1/projekte/{newProject.Id}", createdProject.MapToProjectDto());
+            })
+            .RequireAuthorization()
+            .WithName("ProjektCreate");
         
         endpoints.MapPut("/projekte/{id:guid}/update", async (Guid id, UpdateProjectDto dto, ApplicationDbContext db, HttpContext http) =>
         {
@@ -1262,5 +1261,22 @@ public static class ProjektEndpoints
         })
         .WithName("GetProjectFilterCategories")
         .WithOpenApi(op => new(op) { Summary = "Liefert Kategorien inkl. Display-Name aus EnumExtensions." });
+
+        endpoints.MapGet("/enums/role-templates", () =>
+            {
+                var templates = Enum.GetValues<RoleTemplateType>()
+                    .Select(t => new
+                    {
+                        Id = (int)t, // 0, 1, 2 (Das schickt das Frontend beim Create)
+                        Key = t.ToString(), // "Standard" (für interne Logik)
+
+                        // HIER nutzen wir deine existierende Extension:
+                        Beschreibung = t.GetDisplayName() // "Standard: Projektleitung und..."
+                    })
+                    .ToList();
+
+                return Results.Ok(templates);
+            })
+            .WithName("GetRoleTemplates");
     }
 }
