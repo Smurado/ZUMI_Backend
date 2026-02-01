@@ -28,7 +28,7 @@ namespace ZUMI_Converter
 
             var app = builder.Build();
 
-            app.MapGet("/", () => "ZUMI Video Converter (Queue Active) 🚀");
+            app.MapGet("/", () => "ZUMI Video Converter (Queue Active - H.265 Mode) 🚀");
 
             // Der Endpoint nimmt den Job nur an und wirft ihn in die Queue
             app.MapPost("/convert", async ([FromBody] ConversionJob job, Channel<ConversionJob> channel) =>
@@ -94,7 +94,6 @@ namespace ZUMI_Converter
 
             try
             {
-                // Entscheidung: Audio oder Video?
                 var isAudioTarget = Path.GetExtension(outputFile).ToLower() == ".mp3";
                 string arguments;
 
@@ -106,13 +105,17 @@ namespace ZUMI_Converter
                 }
                 else
                 {
-                    // Video Settings (SVT-AV1)
-                    // preset: 0 (langsam) bis 12 (ultraschnell). 
-                    // 6-8 ist ein guter Sweetspot für Qualität/Speed.
-                    // crf: 30 (Qualität), bei SVT oft etwas anders gewichtet, probier mal 30-35.
-    
-                    arguments = $"-i \"{inputFile}\" -c:v libsvtav1 -preset 3 -crf 44 -c:a aac -b:a 192k -y \"{outputFile}\"";
-                    Console.WriteLine($"[FFmpeg] Starte Video-Konvertierung: {job.MediaId}");
+                    // --- VIDEO SETTINGS: 1080p Full HD / H.265 ---
+                    // -vf "scale=-2:1080" : Zwingt das Video auf 1080p Höhe (Full HD).
+                    //                       4K wird verkleinert, 1080p bleibt, <1080p wird vergrößert (selten).
+                    // -crf 32             : Bei 1080p ist 32 ein sehr guter Wert für Mobile.
+                    //                       Es ist stark komprimiert, aber durch die hohe Auflösung sieht es scharf aus.
+                    //                       Falls es zu "blockig" wirkt, geh auf 30 oder 28 runter.
+                    // -preset slow        : Wichtig für gute Kompression bei 1080p.
+                    
+                    arguments = $"-i \"{inputFile}\" -vf \"scale=-2:1080\" -c:v libx265 -vtag hvc1 -crf 32 -preset slow -c:a aac -b:a 128k -movflags +faststart -y \"{outputFile}\"";
+                    
+                    Console.WriteLine($"[FFmpeg] Starte Konvertierung (1080p/H.265): {job.MediaId}");
                 }
 
                 var startInfo = new ProcessStartInfo
@@ -120,51 +123,32 @@ namespace ZUMI_Converter
                     FileName = "ffmpeg",
                     Arguments = arguments,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true, // FFmpeg schreibt Status in Error
+                    RedirectStandardError = true, 
                     UseShellExecute = false,
                     CreateNoWindow = true
                 };
 
                 using var process = new Process { StartInfo = startInfo };
                 
-                // Event-Handler registrieren, um den Puffer zu leeren
-                // Das verhindert den Deadlock, weil die Daten sofort verarbeitet werden.
-                process.OutputDataReceived += (sender, args) => 
-                {
-                    if (args.Data != null) 
-                    {
-                        Console.WriteLine($"[FFmpeg Out] {args.Data}");
-                    }
-                };
-
-                process.ErrorDataReceived += (sender, args) => 
-                {
-                    if (args.Data != null)
-                    {
-                        // FFmpeg schreibt Logs und Fortschritt standardmäßig in Error!
-                        // Hier könnte man filtern oder nur bei Fehlern loggen.
-                        // Console.WriteLine($"[FFmpeg Log] {args.Data}");
-                    }
-                };
+                process.OutputDataReceived += (sender, args) => { if (args.Data != null) Console.WriteLine($"[FFmpeg Out] {args.Data}"); };
+                process.ErrorDataReceived += (sender, args) => { /* Optional Log */ };
                 
                 process.Start();
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
                 
-                // Wir warten hier, bis FFmpeg fertig ist. 
-                // Da wir in einer Queue sind, blockiert das NICHT die API, sondern nur den nächsten Job.
                 await process.WaitForExitAsync();
 
                 if (process.ExitCode == 0)
                 {
                     Console.WriteLine($"[Success] Fertig: {job.MediaId}");
-                    await SendCallbackAsync(client, job.MediaId, 3); // Completed
+                    await SendCallbackAsync(client, job.MediaId, 3);
                     try { File.Delete(inputFile); } catch { }
                 }
                 else
                 {
                     Console.WriteLine($"[Fail] FFmpeg Error Code: {process.ExitCode}");
-                    await SendCallbackAsync(client, job.MediaId, 4); // Failed
+                    await SendCallbackAsync(client, job.MediaId, 4);
                 }
             }
             catch (Exception ex)
@@ -178,7 +162,7 @@ namespace ZUMI_Converter
         {
             try
             {
-                // Service Name "app" nutzen
+                // Service Name "app" nutzen (Docker interne Kommunikation)
                 await client.PostAsJsonAsync($"http://app:8000/api/v1/internal/callback/{mediaId}", new { Status = status });
             }
             catch
