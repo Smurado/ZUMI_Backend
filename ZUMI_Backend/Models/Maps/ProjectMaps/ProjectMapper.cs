@@ -116,7 +116,7 @@ public static class ProjectMapper
         project.Finance = dto.Finance;
         
         project.LetztesUpdate = DateTime.UtcNow.ToString("yyyy-MM-dd");
-        project.ProjektStatus = ProjektStatus.InVorbereitung; // Default
+        project.ProjektStatus = ProjektStatus.Geplant; // Default
         project.SdgValues = new List<int>();
     }
 

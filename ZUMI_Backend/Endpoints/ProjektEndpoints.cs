@@ -1083,8 +1083,11 @@ public static class ProjektEndpoints
             .WithOpenApi()
             .AllowAnonymous();
         
-        endpoints.MapGet("/projekte/filter", async ([AsParameters] ProjectSearchFilter filter, ApplicationDbContext db) =>
+        endpoints.MapGet("/projekte/filter", async ([AsParameters] ProjectSearchFilter filter, ApplicationDbContext db, HttpContext http) =>
         {
+            var userIdClaim = http.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            Guid? userId = userIdClaim != null ? Guid.Parse(userIdClaim) : null;
+
             // 1. Basis-Abfrage: Nur Projekte mit dem gewünschten Status (1, 2 oder 3)
             var query = db.Projekte
                 .AsNoTracking() // Wichtig für Performance
@@ -1222,10 +1225,12 @@ public static class ProjektEndpoints
                         // SDGs direkt übernehmen (EF Core mappt das JSON-Array automatisch)
                         SdgIds = p.SdgValues ?? new List<int>(),
                 
-                        // Hier musst du entscheiden, was "Category" sein soll.
-                        // Im Beispiel war es -1. Ich mappe hier mal den ProjektStatus.
-                        // Falls du fest -1 willst: Category = -1,
-                        Category = (int)p.ProjektStatus, 
+                        // Kategorie basierend auf User-Interaktion (Owner=0, Liked=1, Participating=2, None=-1)
+                        Category = userId.HasValue 
+                            ? (p.Personen.Any(pp => pp.PersonId == userId.Value && pp.IsOwner) ? 0 : 
+                               p.Personen.Any(pp => pp.PersonId == userId.Value && pp.Roles.Any()) ? 2 :
+                               p.Personen.Any(pp => pp.PersonId == userId.Value && pp.IsLiked) ? 1 : -1)
+                            : -1,
                 
                         // Mapping auf CreatedAt (nutzt hier LetztesUpdate als Fallback)
                         CreatedAt = p.LetztesUpdate 
@@ -1244,16 +1249,24 @@ public static class ProjektEndpoints
             // Hinweis: Prüfe, ob dein Enum für Discovery wirklich 0 ist
             if (filter.Category == ProjectFilterCategory.Discovery) 
             {
-                var discoveryFeed = await db.Projekte
+                query = db.Projekte
                     .AsNoTracking()
-                    .Where(p => (int)p.ProjektStatus == filter.Status)
-            
+                    .Where(p => (int)p.ProjektStatus == filter.Status);
+
+                // Wenn eingeloggt: Filtere Projekte raus, mit denen der User schon interagiert hat
+                if (userId.HasValue)
+                {
+                    query = query.Where(p => !p.Personen.Any(pp => pp.PersonId == userId.Value && 
+                                                                   (pp.IsOwner || pp.IsLiked || pp.Roles.Any())));
+                }
+
+                var discoveryFeed = await query
                     // Sortierung: Standard ist meist "Zuletzt aktualisiert"
                     // (Hier könntest du später auch "Random" oder "Algorithmus" einbauen)
                     .OrderByDescending(p => p.LetztesUpdate)
             
-                    // Projektion auf das schlanke DTO
-                    .Select(p => new ProjektStartItemDto()
+                    // Projektion auf ein anonymes Objekt (ohne Category)
+                    .Select(p => new
                     {
                         ProjektId = p.Id,
                         Kurztitel = p.Kurztitel,
@@ -1266,8 +1279,7 @@ public static class ProjektEndpoints
                 
                         SdgIds = p.SdgValues ?? new List<int>(),
                 
-                        // Kategorie oder Status mappen
-                        Category = (int)p.ProjektStatus, 
+                        // Category wird hier weggelassen!
                 
                         CreatedAt = p.LetztesUpdate
                     })
