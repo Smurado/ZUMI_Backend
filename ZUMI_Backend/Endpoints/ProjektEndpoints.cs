@@ -149,11 +149,6 @@ public static class ProjektEndpoints
             bool isChangingCover = dto.TitelBildId.HasValue && 
                                    project.Medien.FirstOrDefault(m => m.IsCoverPicture)?.Id != dto.TitelBildId.Value;
 
-            // GRUPPE G: Listen (Rollen & Mitglieder) - Hatten wir schon, hier nur der Vollständigkeit halber
-            bool isChangingRoles = dto.Rollen != null && dto.Rollen.Any(); 
-            bool isChangingMembers = dto.Personen != null && dto.Personen.Any();
-
-
             // -------------------------------------------------------------------------
             // 4. RECHTE-GUARD: Zugriff verweigern, wenn Permission fehlt
             // -------------------------------------------------------------------------
@@ -176,11 +171,9 @@ public static class ProjektEndpoints
             if (isChangingCover && !permissions.HasFlag(ProjectPermissions.AddMedia)) // Titelbild gehört zu Medien
                 return Results.Json(new { error = "Keine Berechtigung: Titelbild ändern." }, statusCode: 403);
 
-            if (isChangingRoles && !permissions.HasFlag(ProjectPermissions.ManageRoles))
-                return Results.Json(new { error = "Keine Berechtigung: Rollen verwalten." }, statusCode: 403);
-
-            if (isChangingMembers && !permissions.HasFlag(ProjectPermissions.ManageMembers))
-                return Results.Json(new { error = "Keine Berechtigung: Mitglieder verwalten." }, statusCode: 403);
+            // HINWEIS: Die Checks für Listen (Rollen, Mitglieder, Todos etc.) wurden hier entfernt,
+            // um "Pass-Through" Updates zu erlauben (wenn das Frontend die Liste unverändert zurücksendet).
+            // Die Prüfung erfolgt nun direkt in den jeweiligen Update-Blöcken.
             
             // 5. Daten-Update ausführen
             // Titelbild Logik
@@ -197,60 +190,82 @@ public static class ProjektEndpoints
             // 7. Todos
             if (dto.Todos != null && dto.Todos.Any())
             {
-                if(!permissions.HasFlag(ProjectPermissions.ManageTodos))
-                    return Results.Json(new { error = "Keine Berechtigung zum Verwalten von Aufgaben." }, statusCode: 403);
-                
-                foreach (var todoDto in dto.Todos)
+                bool hasTodoPermission = permissions.HasFlag(ProjectPermissions.ManageTodos);
+
+                if (!hasTodoPermission)
                 {
-                    // FALL A: Löschen gewünscht?
-                    if (todoDto.Delete)
+                    // Check Pass-Through: Prüfen, ob wirklich Änderungen vorliegen
+                    foreach (var todoDto in dto.Todos)
                     {
-                        // Nur versuchen zu löschen, wenn wir eine ID haben
-                        if (todoDto.Id.HasValue)
-                        {
-                            // Wir suchen in der geladenen Liste des Projekts
-                            var toDelete = project.Todos
-                                .FirstOrDefault(t => t.Id == todoDto.Id.Value);
+                        if (todoDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Aufgaben löschen." }, statusCode: 403);
+                        if (!todoDto.Id.HasValue || todoDto.Id == Guid.Empty) return Results.Json(new { error = "Keine Berechtigung: Aufgaben erstellen." }, statusCode: 403);
 
-                            if (toDelete != null)
-                            {
-                                // EF Core merkt das als "Delete" beim SaveChanges
-                                project.Todos.Remove(toDelete);
-                            }
+                        var existing = project.Todos.FirstOrDefault(t => t.Id == todoDto.Id.Value);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Aufgaben bearbeiten (Unbekannte ID)." }, statusCode: 403);
+
+                        if (existing.Titel != todoDto.Titel || 
+                            existing.Status != todoDto.Status || 
+                            existing.Beschreibung != todoDto.Beschreibung)
+                        {
+                            return Results.Json(new { error = "Keine Berechtigung: Aufgaben bearbeiten." }, statusCode: 403);
                         }
-                        // Wenn Delete=true, sind wir mit diesem Item fertig -> weiter zum nächsten
-                        continue; 
                     }
-
-                    // FALL B: Neu anlegen (Keine ID oder Empty Guid)
-                    if (!todoDto.Id.HasValue || todoDto.Id.Value == Guid.Empty)
+                    // Wenn wir hier sind, ist alles identisch -> Wir machen nichts (Pass-Through)
+                }
+                else
+                {
+                    foreach (var todoDto in dto.Todos)
                     {
-                        var newTodo = new Todo
+                        // FALL A: Löschen gewünscht?
+                        if (todoDto.Delete)
                         {
-                            // ID wird im Konstruktor oder hier generiert
-                            Id = Guid.NewGuid(), 
-                            Titel = todoDto.Titel,
-                            Status = todoDto.Status, // Enum (0, 1, 2)
-                            Beschreibung = todoDto.Beschreibung,
-                            ProjectId = project.Id,
-                            //Project = existingProject,
-                        }; 
-
-                        // we have to add it to the db first -> will get added to the correct project via id.
-                        db.Todos.Add(newTodo);
-                    }
-                    // FALL C: Update existierendes
-                    else
-                    {
-                        var existingTodo = project.Todos
-                            .FirstOrDefault(t => t.Id == todoDto.Id.Value);
-
-                        if (existingTodo != null)
+                            // Nur versuchen zu löschen, wenn wir eine ID haben
+                            if (todoDto.Id.HasValue)
+                            {
+                                // Wir suchen in der geladenen Liste des Projekts
+                                var toDelete = project.Todos
+                                    .FirstOrDefault(t => t.Id == todoDto.Id.Value);
+    
+                                if (toDelete != null)
+                                {
+                                    // EF Core merkt das als "Delete" beim SaveChanges
+                                    project.Todos.Remove(toDelete);
+                                }
+                            }
+                            // Wenn Delete=true, sind wir mit diesem Item fertig -> weiter zum nächsten
+                            continue; 
+                        }
+    
+                        // FALL B: Neu anlegen (Keine ID oder Empty Guid)
+                        if (!todoDto.Id.HasValue || todoDto.Id.Value == Guid.Empty)
                         {
-                            existingTodo.Titel = todoDto.Titel;
-                            existingTodo.Status = todoDto.Status;
-                            existingTodo.Beschreibung = todoDto.Beschreibung;
-                            // Delete Flag ist hier false, also bleibt es bestehen
+                            var newTodo = new Todo
+                            {
+                                // ID wird im Konstruktor oder hier generiert
+                                Id = Guid.NewGuid(), 
+                                Titel = todoDto.Titel,
+                                Status = todoDto.Status, // Enum (0, 1, 2)
+                                Beschreibung = todoDto.Beschreibung,
+                                ProjectId = project.Id,
+                                //Project = existingProject,
+                            }; 
+    
+                            // we have to add it to the db first -> will get added to the correct project via id.
+                            db.Todos.Add(newTodo);
+                        }
+                        // FALL C: Update existierendes
+                        else
+                        {
+                            var existingTodo = project.Todos
+                                .FirstOrDefault(t => t.Id == todoDto.Id.Value);
+    
+                            if (existingTodo != null)
+                            {
+                                existingTodo.Titel = todoDto.Titel;
+                                existingTodo.Status = todoDto.Status;
+                                existingTodo.Beschreibung = todoDto.Beschreibung;
+                                // Delete Flag ist hier false, also bleibt es bestehen
+                            }
                         }
                     }
                 }
@@ -259,64 +274,88 @@ public static class ProjektEndpoints
             // 8. Kooperationseinrichtung Logik
             if (dto.Kooperationseinrichtungen != null && dto.Kooperationseinrichtungen.Any())
             {
-                if(!permissions.HasFlag(ProjectPermissions.ManageKooperationseinrichtung))
-                    return Results.Json(new { error = "Keine Berechtigung zum Verwalten der Kooperationseinrichtung" }, statusCode: 403);
+                bool hasCoopPermission = permissions.HasFlag(ProjectPermissions.ManageKooperationseinrichtung);
 
-                foreach (var kooperationseinrichtungDto in dto.Kooperationseinrichtungen)
+                if (!hasCoopPermission)
                 {
-                    // FALL A: Löschen gewünscht?
-                    if (kooperationseinrichtungDto.Delete)
+                    // Check Pass-Through
+                    foreach (var kDto in dto.Kooperationseinrichtungen)
                     {
-                        // Nur versuchen zu löschen, wenn wir eine ID haben
-                        if (kooperationseinrichtungDto.Id.HasValue)
-                        {
-                            // Wir suchen in der geladenen Liste des Projekts
-                            var toDelete = project.Kooperationseinrichtungen
-                                .FirstOrDefault(t => t.Id == kooperationseinrichtungDto.Id.Value);
+                        if (kDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Kooperationseinrichtung löschen." }, statusCode: 403);
+                        if (!kDto.Id.HasValue || kDto.Id == Guid.Empty) return Results.Json(new { error = "Keine Berechtigung: Kooperationseinrichtung erstellen." }, statusCode: 403);
 
-                            if (toDelete != null)
-                            { 
-                                // EF Core merkt das als "Delete" beim SaveChanges
-                                project.Kooperationseinrichtungen.Remove(toDelete);
+                        var existing = project.Kooperationseinrichtungen.FirstOrDefault(x => x.Id == kDto.Id.Value);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Kooperationseinrichtung bearbeiten (Unbekannte ID)." }, statusCode: 403);
+
+                        bool isChanged = existing.Name != kDto.Name ||
+                                         existing.Email != kDto.Email ||
+                                         existing.Webseite != kDto.Webseite ||
+                                         existing.SocialMedia != kDto.SocialMedia ||
+                                         existing.Telefonnummer != kDto.Telefonnummer ||
+                                         existing.Firma != kDto.Firma;
+
+                        if (isChanged) return Results.Json(new { error = "Keine Berechtigung: Kooperationseinrichtung bearbeiten." }, statusCode: 403);
+                    }
+                    // Pass-Through OK
+                }
+                else
+                {
+                    foreach (var kooperationseinrichtungDto in dto.Kooperationseinrichtungen)
+                    {
+                        // FALL A: Löschen gewünscht?
+                        if (kooperationseinrichtungDto.Delete)
+                        {
+                            // Nur versuchen zu löschen, wenn wir eine ID haben
+                            if (kooperationseinrichtungDto.Id.HasValue)
+                            {
+                                // Wir suchen in der geladenen Liste des Projekts
+                                var toDelete = project.Kooperationseinrichtungen
+                                    .FirstOrDefault(t => t.Id == kooperationseinrichtungDto.Id.Value);
+    
+                                if (toDelete != null)
+                                { 
+                                    // EF Core merkt das als "Delete" beim SaveChanges
+                                    project.Kooperationseinrichtungen.Remove(toDelete);
+                                }
                             }
+                            // Wenn Delete=true, sind wir mit diesem Item fertig -> weiter zum nächsten
+                            continue; 
                         }
-                        // Wenn Delete=true, sind wir mit diesem Item fertig -> weiter zum nächsten
-                        continue; 
-                    }
-                    
-                    // FALL A: Neu anlegen (Keine ID oder Empty Guid)
-                    if (!kooperationseinrichtungDto.Id.HasValue || kooperationseinrichtungDto.Id.Value == Guid.Empty)
-                    {
-                        var newkooperationseinrichtung = new Kooperationseinrichtung
+                        
+                        // FALL A: Neu anlegen (Keine ID oder Empty Guid)
+                        if (!kooperationseinrichtungDto.Id.HasValue || kooperationseinrichtungDto.Id.Value == Guid.Empty)
                         {
-                            // ID wird im Konstruktor oder hier generiert
-                            Id = Guid.NewGuid(), 
-                            Webseite =  kooperationseinrichtungDto.Webseite,
-                            Name = kooperationseinrichtungDto.Name,
-                            Projekte = new List<Project>{project},
-                            Telefonnummer =  kooperationseinrichtungDto.Telefonnummer,
-                            Email = kooperationseinrichtungDto.Email,
-                            SocialMedia =  kooperationseinrichtungDto.SocialMedia,
-                            Firma =  kooperationseinrichtungDto.Firma,
-                        }; 
-
-                        // we have to add it to the db first -> will get added to the correct project via id.
-                        db.Kooperationseinrichtungen.Add(newkooperationseinrichtung);
-                    }
-                    // FALL B: Update existierendes Kooperationsstatus
-                    else
-                    {
-                        var existingKooperationseinrichtung = project.Kooperationseinrichtungen
-                            .FirstOrDefault(t => t.Id == kooperationseinrichtungDto.Id.Value);
-
-                        if (existingKooperationseinrichtung != null)
+                            var newkooperationseinrichtung = new Kooperationseinrichtung
+                            {
+                                // ID wird im Konstruktor oder hier generiert
+                                Id = Guid.NewGuid(), 
+                                Webseite =  kooperationseinrichtungDto.Webseite,
+                                Name = kooperationseinrichtungDto.Name,
+                                Projekte = new List<Project>{project},
+                                Telefonnummer =  kooperationseinrichtungDto.Telefonnummer,
+                                Email = kooperationseinrichtungDto.Email,
+                                SocialMedia =  kooperationseinrichtungDto.SocialMedia,
+                                Firma =  kooperationseinrichtungDto.Firma,
+                            }; 
+    
+                            // we have to add it to the db first -> will get added to the correct project via id.
+                            db.Kooperationseinrichtungen.Add(newkooperationseinrichtung);
+                        }
+                        // FALL B: Update existierendes Kooperationsstatus
+                        else
                         {
-                            existingKooperationseinrichtung.Name = kooperationseinrichtungDto.Name;
-                            existingKooperationseinrichtung.Email = kooperationseinrichtungDto.Email;
-                            existingKooperationseinrichtung.Webseite = kooperationseinrichtungDto.Webseite;
-                            existingKooperationseinrichtung.SocialMedia = kooperationseinrichtungDto.SocialMedia;
-                            existingKooperationseinrichtung.Telefonnummer = kooperationseinrichtungDto.Telefonnummer;
-                            existingKooperationseinrichtung.Firma = kooperationseinrichtungDto.Firma;
+                            var existingKooperationseinrichtung = project.Kooperationseinrichtungen
+                                .FirstOrDefault(t => t.Id == kooperationseinrichtungDto.Id.Value);
+    
+                            if (existingKooperationseinrichtung != null)
+                            {
+                                existingKooperationseinrichtung.Name = kooperationseinrichtungDto.Name;
+                                existingKooperationseinrichtung.Email = kooperationseinrichtungDto.Email;
+                                existingKooperationseinrichtung.Webseite = kooperationseinrichtungDto.Webseite;
+                                existingKooperationseinrichtung.SocialMedia = kooperationseinrichtungDto.SocialMedia;
+                                existingKooperationseinrichtung.Telefonnummer = kooperationseinrichtungDto.Telefonnummer;
+                                existingKooperationseinrichtung.Firma = kooperationseinrichtungDto.Firma;
+                            }
                         }
                     }
                 }
@@ -325,50 +364,70 @@ public static class ProjektEndpoints
             // 9. Materialien
             if (dto.Materialien != null && dto.Materialien.Any())
             {
-             
-                if(!permissions.HasFlag(ProjectPermissions.ManageMaterialien))
-                    return Results.Json(new { error = "Keine Berechtigung zum Verwalten der Materialien" }, statusCode: 403);
+                bool hasMatPermission = permissions.HasFlag(ProjectPermissions.ManageMaterialien);
                 
-                foreach (var materialDto in dto.Materialien)
+                if (!hasMatPermission)
                 {
-                    // FALL A: Löschen
-                    if (materialDto.Delete)
+                    // Pass-Through Check
+                    foreach (var mDto in dto.Materialien)
                     {
-                        if (materialDto.Id.HasValue)
+                        if (mDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Material löschen." }, statusCode: 403);
+                        if (!mDto.Id.HasValue || mDto.Id == Guid.Empty) return Results.Json(new { error = "Keine Berechtigung: Material erstellen." }, statusCode: 403);
+
+                        var existing = project.Materialien.FirstOrDefault(x => x.Id == mDto.Id.Value);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Material bearbeiten (Unbekannte ID)." }, statusCode: 403);
+
+                        // Wenn DTO-Property null ist, wird sie im Update nicht angefasst -> also hier auch als "keine Änderung" werten
+                        bool isChanged = (mDto.Name != null && existing.Name != mDto.Name) ||
+                                         (mDto.Beschreibung != null && existing.Beschreibung != mDto.Beschreibung) ||
+                                         existing.Vorhanden != mDto.Vorhanden;
+
+                        if (isChanged) return Results.Json(new { error = "Keine Berechtigung: Material bearbeiten." }, statusCode: 403);
+                    }
+                }
+                else
+                {
+                    foreach (var materialDto in dto.Materialien)
+                    {
+                        // FALL A: Löschen
+                        if (materialDto.Delete)
                         {
-                            var toDelete = project.Materialien
-                                .FirstOrDefault(m => m.Id == materialDto.Id.Value);
-                            
-                            if (toDelete != null) project.Materialien.Remove(toDelete);  // EF löscht Junction auto
+                            if (materialDto.Id.HasValue)
+                            {
+                                var toDelete = project.Materialien
+                                    .FirstOrDefault(m => m.Id == materialDto.Id.Value);
+                                
+                                if (toDelete != null) project.Materialien.Remove(toDelete);  // EF löscht Junction auto
+                            }
                         }
-                    }
-                        
-                    // FALL B: Neu anlegen
-                    if (!materialDto.Id.HasValue || materialDto.Id.Value == Guid.Empty)
-                    {
-                        var newMaterial = new Material
+                            
+                        // FALL B: Neu anlegen
+                        if (!materialDto.Id.HasValue || materialDto.Id.Value == Guid.Empty)
                         {
-                            Id = Guid.NewGuid(),
-                            Name = materialDto.Name,
-                            Beschreibung = materialDto.Beschreibung,
-                            Vorhanden = materialDto.Vorhanden,
-                            Projekt = project
-                        };
-
-                        db.Materialien.Add(newMaterial);
-                        //existingProject.Materialien.Add(newMaterial); 
-                    }
-                    // FALL C: Update
-                    else
-                    {
-                        var existingMaterial = project.Materialien
-                            .FirstOrDefault(m => m.Id == materialDto.Id.Value);
-
-                        if (existingMaterial != null)
+                            var newMaterial = new Material
+                            {
+                                Id = Guid.NewGuid(),
+                                Name = materialDto.Name,
+                                Beschreibung = materialDto.Beschreibung,
+                                Vorhanden = materialDto.Vorhanden,
+                                Projekt = project
+                            };
+    
+                            db.Materialien.Add(newMaterial);
+                            //existingProject.Materialien.Add(newMaterial); 
+                        }
+                        // FALL C: Update
+                        else
                         {
-                            existingMaterial.Name = materialDto.Name ?? existingMaterial.Name;
-                            existingMaterial.Beschreibung = materialDto.Beschreibung ?? existingMaterial.Beschreibung;
-                            existingMaterial.Vorhanden = materialDto.Vorhanden;
+                            var existingMaterial = project.Materialien
+                                .FirstOrDefault(m => m.Id == materialDto.Id.Value);
+    
+                            if (existingMaterial != null)
+                            {
+                                existingMaterial.Name = materialDto.Name ?? existingMaterial.Name;
+                                existingMaterial.Beschreibung = materialDto.Beschreibung ?? existingMaterial.Beschreibung;
+                                existingMaterial.Vorhanden = materialDto.Vorhanden;
+                            }
                         }
                     }
                 }
@@ -380,59 +439,80 @@ public static class ProjektEndpoints
             if (dto.FundingItems != null && dto.FundingItems.Any())
             {
                 // Wir nutzen den bereits berechneten Permission-Check von oben (ManageBudget)
-                if(!permissions.HasFlag(ProjectPermissions.ManageBudget))
-                    return Results.Json(new { error = "Keine Berechtigung: Finanzierungsziele verwalten." }, statusCode: 403);
+                bool hasBudgetPermission = permissions.HasFlag(ProjectPermissions.ManageBudget);
 
-                foreach (var fundingDto in dto.FundingItems)
+                if (!hasBudgetPermission)
                 {
-                    // FALL A: Löschen
-                    if (fundingDto.Delete)
+                    // Pass-Through Check
+                    foreach (var fDto in dto.FundingItems)
                     {
-                        if (fundingDto.Id != Guid.Empty)
+                        if (fDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Finanzierung löschen." }, statusCode: 403);
+                        if (!fDto.Id.HasValue || fDto.Id == Guid.Empty) return Results.Json(new { error = "Keine Berechtigung: Finanzierung erstellen." }, statusCode: 403);
+
+                        var existing = project.FundingItems.FirstOrDefault(x => x.Id == fDto.Id.Value);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Finanzierung bearbeiten (Unbekannte ID)." }, statusCode: 403);
+
+                        bool isChanged = existing.Titel != fDto.Title ||
+                                         existing.Beschreibung != fDto.Beschreibung ||
+                                         existing.BenoetigterBetrag != fDto.BenoetigterBetrag ||
+                                         existing.BereitsGesammelt != fDto.BereitsGesammelt;
+
+                        if (isChanged) return Results.Json(new { error = "Keine Berechtigung: Finanzierung bearbeiten." }, statusCode: 403);
+                    }
+                }
+                else
+                {
+                    foreach (var fundingDto in dto.FundingItems)
+                    {
+                        // FALL A: Löschen
+                        if (fundingDto.Delete)
                         {
-                            var toDelete = project.FundingItems
-                                .FirstOrDefault(f => f.Id == fundingDto.Id);
-                            
-                            if (toDelete != null) 
+                            if (fundingDto.Id != Guid.Empty)
                             {
-                                // EF Core löscht das Item aus der DB
-                                project.FundingItems.Remove(toDelete);
+                                var toDelete = project.FundingItems
+                                    .FirstOrDefault(f => f.Id == fundingDto.Id);
+                                
+                                if (toDelete != null) 
+                                {
+                                    // EF Core löscht das Item aus der DB
+                                    project.FundingItems.Remove(toDelete);
+                                }
                             }
+                            continue;
                         }
-                        continue;
-                    }
-
-                    // FALL B: Neu anlegen (Keine ID oder Empty Guid)
-                    if (fundingDto.Id == Guid.Empty || fundingDto.Id == null)
-                    {
-                        var newItem = new FundingItem
+    
+                        // FALL B: Neu anlegen (Keine ID oder Empty Guid)
+                        if (fundingDto.Id == Guid.Empty || fundingDto.Id == null)
                         {
-                            Id = Guid.NewGuid(),
-                            Titel = fundingDto.Title,
-                            BenoetigterBetrag = fundingDto.BenoetigterBetrag,
-                            Beschreibung = fundingDto.Beschreibung,
-                            BereitsGesammelt = fundingDto.BereitsGesammelt, 
-                            ProjectId = project.Id
-                        };
-
-                        // Zur Liste hinzufügen
-                        project.FundingItems.Add(newItem);
-                        db.FundingItems.Add(newItem); // Zur Sicherheit explizit tracken
-                    }
-                    // FALL C: Update existierendes Item
-                    else
-                    {
-                        var existingItem = project.FundingItems
-                            .FirstOrDefault(f => f.Id == fundingDto.Id);
-
-                        if (existingItem != null)
+                            var newItem = new FundingItem
+                            {
+                                Id = Guid.NewGuid(),
+                                Titel = fundingDto.Title,
+                                BenoetigterBetrag = fundingDto.BenoetigterBetrag,
+                                Beschreibung = fundingDto.Beschreibung,
+                                BereitsGesammelt = fundingDto.BereitsGesammelt, 
+                                ProjectId = project.Id
+                            };
+    
+                            // Zur Liste hinzufügen
+                            project.FundingItems.Add(newItem);
+                            db.FundingItems.Add(newItem); // Zur Sicherheit explizit tracken
+                        }
+                        // FALL C: Update existierendes Item
+                        else
                         {
-                            existingItem.Titel = fundingDto.Title;
-                            existingItem.Beschreibung = fundingDto.Beschreibung;
-                            existingItem.BenoetigterBetrag = fundingDto.BenoetigterBetrag;
-                            
-                            // Manuelles Korrigieren des Spendenstandes (falls nötig)
-                            existingItem.BereitsGesammelt = fundingDto.BereitsGesammelt;
+                            var existingItem = project.FundingItems
+                                .FirstOrDefault(f => f.Id == fundingDto.Id);
+    
+                            if (existingItem != null)
+                            {
+                                existingItem.Titel = fundingDto.Title;
+                                existingItem.Beschreibung = fundingDto.Beschreibung;
+                                existingItem.BenoetigterBetrag = fundingDto.BenoetigterBetrag;
+                                
+                                // Manuelles Korrigieren des Spendenstandes (falls nötig)
+                                existingItem.BereitsGesammelt = fundingDto.BereitsGesammelt;
+                            }
                         }
                     }
                 }
@@ -443,73 +523,92 @@ public static class ProjektEndpoints
             // -----------------------------------------------------------
             if (dto.Rollen != null && dto.Rollen.Any())
             {
-                if (!permissions.HasFlag(ProjectPermissions.ManageRoles))
-                    return Results.Json(new { error = "Keine Berechtigung: Rollen verwalten." }, statusCode: 403);
+                bool hasRolePermission = permissions.HasFlag(ProjectPermissions.ManageRoles);
 
-                foreach (var roleDto in dto.Rollen)
+                if (!hasRolePermission)
                 {
-                    // FALL A: Löschen
-                    if (roleDto.Delete)
+                    foreach (var roleDto in dto.Rollen)
                     {
-                        if (roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty)
+                        if (roleDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Rollen löschen." }, statusCode: 403);
+                        if (!roleDto.Id.HasValue || roleDto.Id == Guid.Empty) return Results.Json(new { error = "Keine Berechtigung: Rollen erstellen." }, statusCode: 403);
+
+                        var existing = project.Roles.FirstOrDefault(r => r.Id == roleDto.Id.Value);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Rollen bearbeiten (Unbekannte ID)." }, statusCode: 403);
+
+                        bool isChanged = existing.Name != roleDto.Name;
+                        if (roleDto.Permissions.HasValue && (int)existing.Permissions != roleDto.Permissions.Value)
+                            isChanged = true;
+
+                        if (isChanged) return Results.Json(new { error = "Keine Berechtigung: Rollen bearbeiten." }, statusCode: 403);
+                    }
+                }
+                else
+                {
+                    foreach (var roleDto in dto.Rollen)
+                    {
+                        // FALL A: Löschen
+                        if (roleDto.Delete)
                         {
-                            // Wir suchen direkt im Context, um sicherzugehen, dass es getrackt ist
-                            var roleToDelete = await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
-                            
-                            if (roleToDelete != null)
+                            if (roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty)
                             {
-                                if (roleToDelete.IsSystemRole)
-                                     return Results.BadRequest($"Systemrolle '{roleToDelete.Name}' darf nicht gelöscht werden.");
+                                // Wir suchen direkt im Context, um sicherzugehen, dass es getrackt ist
+                                var roleToDelete = await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
                                 
-                                // Explizites Löschen aus dem DB-Set
-                                db.ProjectRoles.Remove(roleToDelete);
+                                if (roleToDelete != null)
+                                {
+                                    if (roleToDelete.IsSystemRole)
+                                         return Results.BadRequest($"Systemrolle '{roleToDelete.Name}' darf nicht gelöscht werden.");
+                                    
+                                    // Explizites Löschen aus dem DB-Set
+                                    db.ProjectRoles.Remove(roleToDelete);
+                                }
+                            }
+                            continue;
+                        }
+    
+                        // FALL B: Update oder Neu
+                        bool isUpdate = roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty;
+    
+                        if (isUpdate)
+                        {
+                            // UPDATE: Wir laden die Rolle explizit oder nutzen die aus dem Projekt
+                            var existingRole = project.Roles.FirstOrDefault(r => r.Id == roleDto.Id.Value) 
+                                               ?? await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
+    
+                            if (existingRole != null)
+                            {
+                                existingRole.Name = roleDto.Name;
+                                if (roleDto.Permissions.HasValue)
+                                    existingRole.Permissions = (ProjectPermissions)roleDto.Permissions.Value;
+                                
+                                // Sicherstellen, dass der State auf Modified steht
+                                db.Entry(existingRole).State = EntityState.Modified;
                             }
                         }
-                        continue;
-                    }
-
-                    // FALL B: Update oder Neu
-                    bool isUpdate = roleDto.Id.HasValue && roleDto.Id.Value != Guid.Empty;
-
-                    if (isUpdate)
-                    {
-                        // UPDATE: Wir laden die Rolle explizit oder nutzen die aus dem Projekt
-                        var existingRole = project.Roles.FirstOrDefault(r => r.Id == roleDto.Id.Value) 
-                                           ?? await db.ProjectRoles.FirstOrDefaultAsync(r => r.Id == roleDto.Id.Value);
-
-                        if (existingRole != null)
+                        else
                         {
-                            existingRole.Name = roleDto.Name;
-                            if (roleDto.Permissions.HasValue)
-                                existingRole.Permissions = (ProjectPermissions)roleDto.Permissions.Value;
+                            // NEU: Double-Check auf Namen (Vermeidung von Duplikaten)
+                            // Wir prüfen in der lokalen Liste UND in der DB
+                            var nameExists = project.Roles.Any(r => r.Name.Equals(roleDto.Name, StringComparison.OrdinalIgnoreCase));
                             
-                            // Sicherstellen, dass der State auf Modified steht
-                            db.Entry(existingRole).State = EntityState.Modified;
-                        }
-                    }
-                    else
-                    {
-                        // NEU: Double-Check auf Namen (Vermeidung von Duplikaten)
-                        // Wir prüfen in der lokalen Liste UND in der DB
-                        var nameExists = project.Roles.Any(r => r.Name.Equals(roleDto.Name, StringComparison.OrdinalIgnoreCase));
-                        
-                        if (!nameExists)
-                        {
-                            var newRole = new ProjectRole
+                            if (!nameExists)
                             {
-                                Id = Guid.NewGuid(),
-                                ProjectId = project.Id, // Wichtig: Explizite Zuordnung
-                                Name = roleDto.Name,
-                                Permissions = roleDto.Permissions.HasValue 
-                                              ? (ProjectPermissions)roleDto.Permissions.Value 
-                                              : ProjectPermissions.None,
-                                IsSystemRole = false
-                            };
-                            
-                            // Direktes Hinzufügen zum DbSet ist oft sicherer als zur Collection
-                            db.ProjectRoles.Add(newRole);
-                            // Wir fügen es auch der lokalen Liste hinzu, damit Abschnitt 11 (unten) die neue Rolle kennt
-                            project.Roles.Add(newRole);
+                                var newRole = new ProjectRole
+                                {
+                                    Id = Guid.NewGuid(),
+                                    ProjectId = project.Id, // Wichtig: Explizite Zuordnung
+                                    Name = roleDto.Name,
+                                    Permissions = roleDto.Permissions.HasValue 
+                                                  ? (ProjectPermissions)roleDto.Permissions.Value 
+                                                  : ProjectPermissions.None,
+                                    IsSystemRole = false
+                                };
+                                
+                                // Direktes Hinzufügen zum DbSet ist oft sicherer als zur Collection
+                                db.ProjectRoles.Add(newRole);
+                                // Wir fügen es auch der lokalen Liste hinzu, damit Abschnitt 11 (unten) die neue Rolle kennt
+                                project.Roles.Add(newRole);
+                            }
                         }
                     }
                 }
@@ -520,73 +619,104 @@ public static class ProjektEndpoints
             // -----------------------------------------------------------
             if (dto.Personen != null && dto.Personen.Any())
             {
-                if (!permissions.HasFlag(ProjectPermissions.ManageMembers))
-                     return Results.Json(new { error = "Keine Berechtigung zur Mitgliederverwaltung." }, statusCode: 403);
+                bool hasMemberPermission = permissions.HasFlag(ProjectPermissions.ManageMembers);
 
-                foreach (var person in dto.Personen)
+                if (!hasMemberPermission)
                 {
-                    var targetPersonId = person.PersonId;
-
-                    // ... (Hier dein Lösch-Code für Personen unverändert lassen) ...
-                    if (person.Delete) { /* Dein Delete Code hier... */ continue; }
-
-                    // Person suchen oder anlegen
-                    var memberEntry = project.Personen.FirstOrDefault(pp => pp.PersonId == targetPersonId);
-                    if (memberEntry == null)
+                    foreach (var pDto in dto.Personen)
                     {
-                        memberEntry = new ProjektPerson { ProjektId = id, PersonId = targetPersonId, Roles = new List<ProjektPersonRole>() };
-                        project.Personen.Add(memberEntry);
-                    }
-                    
-                    // Update Properties
-                    memberEntry.IsLiked = person.IsLiked;
-                    if (person.IsOwner != memberEntry.IsOwner && currentUserEntry.IsOwner) 
-                        memberEntry.IsOwner = person.IsOwner;
-                    
-                    // ROLLEN ZUWEISUNG (Der kritische Teil)
-                    if (person.Roles != null)
-                    {
-                        // SCHRITT 1: Wir "entpacken" die GUIDs aus den Objekten
-                        // Annahme: person.Roles ist List<RoleIdWrapper> (oder ähnlich) mit Property .Id
-                        var targetRoleIds = person.Roles
-                            .Select(r => r.Id)              // <-- Hier greifen wir auf das Property .Id zu
-                            .Where(id => id != Guid.Empty)  // <-- Prüfen die GUID, nicht das Objekt
-                            .ToList();
+                        if (pDto.Delete) return Results.Json(new { error = "Keine Berechtigung: Mitglieder entfernen." }, statusCode: 403);
 
-                        // A. Cleanup (Was muss weg?)
-                        // Wir prüfen gegen die Liste der GUIDs ('targetRoleIds' ist jetzt List<Guid>)
-                        var rolesToRemove = memberEntry.Roles
-                            .Where(r => !targetRoleIds.Contains(r.ProjectRoleId))
-                            .ToList();
+                        var existing = project.Personen.FirstOrDefault(pp => pp.PersonId == pDto.PersonId);
+                        if (existing == null) return Results.Json(new { error = "Keine Berechtigung: Mitglieder hinzufügen." }, statusCode: 403);
 
-                        if (rolesToRemove.Any())
+                        // Check properties
+                        if (existing.IsLiked != pDto.IsLiked) return Results.Json(new { error = "Keine Berechtigung: Mitglieder bearbeiten (Like-Status)." }, statusCode: 403);
+                        
+                        // Owner Change Check
+                        // Wir prüfen einfach, ob das DTO etwas anderes behauptet als die DB
+                        if (pDto.IsOwner != existing.IsOwner) 
+                            return Results.Json(new { error = "Keine Berechtigung: Mitglieder bearbeiten (Owner-Status)." }, statusCode: 403);
+
+                        // Check Roles
+                        if (pDto.Roles != null)
                         {
-                            // Entfernen aus DB und lokaler Liste
-                            db.ProjektPersonRoles.RemoveRange(rolesToRemove);
-                            foreach (var rem in rolesToRemove) memberEntry.Roles.Remove(rem);
+                            var targetRoleIds = pDto.Roles.Select(r => r.Id).Where(id => id != Guid.Empty).ToList();
+                            var existingRoleIds = existing.Roles.Select(r => r.ProjectRoleId).ToList();
+                            
+                            // Sets vergleichen (Reihenfolge egal)
+                            bool rolesChanged = !new HashSet<Guid>(targetRoleIds).SetEquals(existingRoleIds);
+                            if (rolesChanged) return Results.Json(new { error = "Keine Berechtigung: Mitglieder-Rollen bearbeiten." }, statusCode: 403);
                         }
-
-                        // B. Adding (Was muss dazu?)
-                        foreach (var roleId in targetRoleIds)
+                    }
+                }
+                else
+                {
+                    foreach (var person in dto.Personen)
+                    {
+                        var targetPersonId = person.PersonId;
+    
+                        // ... (Hier dein Lösch-Code für Personen unverändert lassen) ...
+                        if (person.Delete) { /* Dein Delete Code hier... */ continue; }
+    
+                        // Person suchen oder anlegen
+                        var memberEntry = project.Personen.FirstOrDefault(pp => pp.PersonId == targetPersonId);
+                        if (memberEntry == null)
                         {
-                            // 'roleId' ist jetzt direkt eine Guid, daher einfacher Vergleich:
-                            if (!memberEntry.Roles.Any(r => r.ProjectRoleId == roleId))
+                            memberEntry = new ProjektPerson { ProjektId = id, PersonId = targetPersonId, Roles = new List<ProjektPersonRole>() };
+                            project.Personen.Add(memberEntry);
+                        }
+                        
+                        // Update Properties
+                        memberEntry.IsLiked = person.IsLiked;
+                        if (person.IsOwner != memberEntry.IsOwner && currentUserEntry.IsOwner) 
+                            memberEntry.IsOwner = person.IsOwner;
+                        
+                        // ROLLEN ZUWEISUNG (Der kritische Teil)
+                        if (person.Roles != null)
+                        {
+                            // SCHRITT 1: Wir "entpacken" die GUIDs aus den Objekten
+                            // Annahme: person.Roles ist List<RoleIdWrapper> (oder ähnlich) mit Property .Id
+                            var targetRoleIds = person.Roles
+                                .Select(r => r.Id)              // <-- Hier greifen wir auf das Property .Id zu
+                                .Where(id => id != Guid.Empty)  // <-- Prüfen die GUID, nicht das Objekt
+                                .ToList();
+    
+                            // A. Cleanup (Was muss weg?)
+                            // Wir prüfen gegen die Liste der GUIDs ('targetRoleIds' ist jetzt List<Guid>)
+                            var rolesToRemove = memberEntry.Roles
+                                .Where(r => !targetRoleIds.Contains(r.ProjectRoleId))
+                                .ToList();
+    
+                            if (rolesToRemove.Any())
                             {
-                                // Existiert die Rolle im Projekt?
-                                var roleDefinition = project.Roles.FirstOrDefault(r => r.Id == roleId);
-            
-                                // Sicherheitscheck: Rolle existiert und ist nicht im "Deleted"-Status (EF ChangeTracker)
-                                var entry = roleDefinition != null ? db.Entry(roleDefinition) : null;
-                                bool isDeleted = entry != null && entry.State == EntityState.Deleted;
-
-                                if (roleDefinition != null && !isDeleted)
+                                // Entfernen aus DB und lokaler Liste
+                                db.ProjektPersonRoles.RemoveRange(rolesToRemove);
+                                foreach (var rem in rolesToRemove) memberEntry.Roles.Remove(rem);
+                            }
+    
+                            // B. Adding (Was muss dazu?)
+                            foreach (var roleId in targetRoleIds)
+                            {
+                                // 'roleId' ist jetzt direkt eine Guid, daher einfacher Vergleich:
+                                if (!memberEntry.Roles.Any(r => r.ProjectRoleId == roleId))
                                 {
-                                    memberEntry.Roles.Add(new ProjektPersonRole
+                                    // Existiert die Rolle im Projekt?
+                                    var roleDefinition = project.Roles.FirstOrDefault(r => r.Id == roleId);
+                
+                                    // Sicherheitscheck: Rolle existiert und ist nicht im "Deleted"-Status (EF ChangeTracker)
+                                    var entry = roleDefinition != null ? db.Entry(roleDefinition) : null;
+                                    bool isDeleted = entry != null && entry.State == EntityState.Deleted;
+    
+                                    if (roleDefinition != null && !isDeleted)
                                     {
-                                        PersonId = memberEntry.PersonId,
-                                        ProjektId = project.Id,
-                                        ProjectRoleId = roleId // <-- Direkt die Guid zuweisen
-                                    });
+                                        memberEntry.Roles.Add(new ProjektPersonRole
+                                        {
+                                            PersonId = memberEntry.PersonId,
+                                            ProjektId = project.Id,
+                                            ProjectRoleId = roleId // <-- Direkt die Guid zuweisen
+                                        });
+                                    }
                                 }
                             }
                         }
