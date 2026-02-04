@@ -142,8 +142,8 @@ public static class ProjektEndpoints
             bool isChangingBudget = 
                 (dto.GesamtBudget.HasValue && dto.GesamtBudget != project.GesamtBudget) ||
                 (dto.SpentBudget.HasValue && dto.SpentBudget != project.SpentBudget) ||
-                (dto.Finance != null && dto.Finance != project.Finance) ||
-                (dto.FundingItems != null && dto.FundingItems.Any());
+                (dto.Finance != null && dto.Finance != project.Finance);
+                // (dto.FundingItems != null && dto.FundingItems.Any()); // Entfernt: Wird separat in 9b geprüft (Smart Diff)
 
             // GRUPPE F: AddMedia (Titelbild)
             bool isChangingCover = dto.TitelBildId.HasValue && 
