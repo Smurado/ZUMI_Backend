@@ -17,7 +17,15 @@ public static class MetaEndpoints
                 return Results.Ok(new List<object>());
             }
 
-            var baseUrl = $"{request.Scheme}://{request.Host}";
+            // Wir fragen den Header ab, den Nginx mitschickt
+            var forwardedProto = request.Headers["X-Forwarded-Proto"].FirstOrDefault();
+
+            // Logik:
+            // 1. Wenn Nginx sagt "es war https", nehmen wir "https".
+            // 2. Wenn der Header fehlt (z.B. beim lokalen Testen ohne Nginx), nehmen wir das, was .NET sieht (request.Scheme).
+            var scheme = forwardedProto ?? request.Scheme;
+
+            var baseUrl = $"{scheme}://{request.Host}";
 
             var logos = Directory.GetFiles(folderPath)
                 .Select(path => Path.GetFileName(path))
